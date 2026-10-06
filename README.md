@@ -95,3 +95,7 @@ extension/
   context menu is rebuilt once per browser session.
 - Page data is untrusted: the popup never uses `innerHTML` with it, and CSV
   cells are guarded against spreadsheet formula injection.
+
+## License
+
+[MIT](LICENSE) © 2026 Andrés Flores
