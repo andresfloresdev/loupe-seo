@@ -43,8 +43,9 @@ or when it quits.
 DEVELOPMENT_TEAM=<your team id> ./scripts/build-safari-app.sh
 ```
 
-This wraps `extension/` in a small macOS app with Apple's packager, builds it
-and opens it once. Then enable Loupe SEO in Safari › Settings › Extensions.
+This wraps `extension/` in a small macOS app with Apple's packager, builds it,
+installs it in `/Applications` (set `INSTALL_DIR` to change that) and opens it
+once. Then enable Loupe SEO in Safari › Settings › Extensions.
 Without a team the build is unsigned and needs Settings › Developer › "Allow
 unsigned extensions" after every Safari launch.
 
