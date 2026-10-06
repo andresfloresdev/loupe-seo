@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Toolbar variant: full bleed and heavier strokes so it reads at 16px -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2B2F38"/>
+      <stop offset="1" stop-color="#121418"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="992" height="992" rx="240" fill="url(#bg)"/>
+  <clipPath id="lens"><circle cx="440" cy="440" r="200"/></clipPath>
+  <g clip-path="url(#lens)">
+    <rect x="320" y="470" width="78" height="170" rx="24" fill="#2ED197"/>
+    <rect x="482" y="340" width="78" height="300" rx="24" fill="#5BE6B0"/>
+  </g>
+  <circle cx="440" cy="440" r="240" fill="none" stroke="#F5F6F8" stroke-width="88"/>
+  <line x1="620" y1="620" x2="800" y2="800" stroke="#F5F6F8" stroke-width="116" stroke-linecap="round"/>
+</svg>
