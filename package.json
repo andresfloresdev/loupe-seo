@@ -1,0 +1,20 @@
+{
+  "name": "loupe-seo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Page-level SEO insights for Safari (MV3 web extension).",
+  "type": "module",
+  "scripts": {
+    "icons": "node scripts/make-icons.mjs",
+    "test": "node --test \"tests/unit/*.test.js\"",
+    "test:e2e": "node tests/e2e/run.mjs",
+    "compat": "node scripts/check-safari-compat.mjs",
+    "package": "node scripts/package.mjs",
+    "check": "npm run compat && npm test && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@mdn/browser-compat-data": "^6.0.0",
+    "playwright": "1.63.0",
+    "sharp": "^0.34.0"
+  }
+}

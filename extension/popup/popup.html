@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Loupe SEO</title>
+    <link rel="stylesheet" href="popup.css" />
+    <script type="module" src="popup.js"></script>
+  </head>
+  <body>
+    <div class="app" id="app" data-state="loading">
+      <header class="top">
+        <div class="favicon-wrap"><img class="favicon" id="favicon" alt="" /></div>
+        <div class="page-id">
+          <div class="page-title" id="pageTitle">Loupe SEO</div>
+          <div class="page-host" id="pageHost">Reading the page…</div>
+        </div>
+        <button class="icon-btn" id="refresh" type="button" title="Analyse again" aria-label="Analyse again"></button>
+      </header>
+
+      <nav class="tabs" role="tablist" id="tabs">
+        <button role="tab" type="button" data-tab="overview" aria-selected="true">Overview</button>
+        <button role="tab" type="button" data-tab="headings">Headings</button>
+        <button role="tab" type="button" data-tab="links">Links</button>
+        <button role="tab" type="button" data-tab="images">Images</button>
+        <button role="tab" type="button" data-tab="schema">Schema</button>
+        <button role="tab" type="button" data-tab="social">Social</button>
+        <button role="tab" type="button" data-tab="tools">Tools</button>
+        <button role="tab" type="button" data-tab="settings" class="tab-icon" aria-label="Settings" title="Settings"></button>
+        <span class="tab-ink" id="tabInk" aria-hidden="true"></span>
+      </nav>
+
+      <main class="panels" id="panels">
+        <section class="panel" id="panel-overview" role="tabpanel" data-panel="overview"></section>
+        <section class="panel" id="panel-headings" role="tabpanel" data-panel="headings" hidden></section>
+        <section class="panel" id="panel-links" role="tabpanel" data-panel="links" hidden></section>
+        <section class="panel" id="panel-images" role="tabpanel" data-panel="images" hidden></section>
+        <section class="panel" id="panel-schema" role="tabpanel" data-panel="schema" hidden></section>
+        <section class="panel" id="panel-social" role="tabpanel" data-panel="social" hidden></section>
+        <section class="panel" id="panel-tools" role="tabpanel" data-panel="tools" hidden></section>
+        <section class="panel" id="panel-settings" role="tabpanel" data-panel="settings" hidden></section>
+      </main>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </body>
+</html>
