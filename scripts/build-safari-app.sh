@@ -68,5 +68,17 @@ xcodebuild \
 APP="$OUT/DerivedData/Build/Products/Release/$APP_NAME.app"
 echo
 echo "Built: $APP"
+
+# Install a copy in /Applications (override with INSTALL_DIR) so the extension
+# survives a clean of build/, then unregister the build copy so Safari lists
+# the extension once.
+INSTALL_DIR="${INSTALL_DIR:-/Applications}"
+INSTALLED="$INSTALL_DIR/$APP_NAME.app"
+osascript -e "tell application id \"$BUNDLE_ID\" to quit" >/dev/null 2>&1 || true
+rm -rf "$INSTALLED"
+ditto "$APP" "$INSTALLED"
+pluginkit -r "$APP/Contents/PlugIns/$APP_NAME Extension.appex" >/dev/null 2>&1 || true
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP" >/dev/null 2>&1 || true
+echo "Installed: $INSTALLED"
 echo "Opening it once registers the extension. Then enable it in Safari Settings › Extensions."
-open "$APP"
+open "$INSTALLED"
