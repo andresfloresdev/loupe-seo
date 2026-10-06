@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Page-level SEO insights for Safari (MV3 web extension).",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "icons": "node scripts/make-icons.mjs",
