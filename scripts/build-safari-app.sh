@@ -36,6 +36,20 @@ xcrun "$TOOL" extension \
 PROJECT="$(find "$OUT" -maxdepth 3 -name '*.xcodeproj' | head -n 1)"
 echo "Xcode project: $PROJECT"
 
+# The packager names the app target's bundle id after --app-name
+# (ca.agenceflores.Loupe-SEO) but gives the extension the id we passed
+# (ca.agenceflores.loupe-seo.Extension). xcodebuild then refuses to embed an
+# extension whose id is not prefixed by its app's. Give the app our id, then
+# check that every target's id is ours or starts with it.
+PBXPROJ="$PROJECT/project.pbxproj"
+sed -i '' -E "/PRODUCT_BUNDLE_IDENTIFIER = /{/\.Extension\"?;/!s/(PRODUCT_BUNDLE_IDENTIFIER = ).*;/\1\"$BUNDLE_ID\";/;}" "$PBXPROJ"
+while IFS= read -r id; do
+  case "$id" in
+    "$BUNDLE_ID" | "$BUNDLE_ID".*) ;;
+    *) echo "Bundle id $id does not start with $BUNDLE_ID in $PBXPROJ" >&2; exit 1 ;;
+  esac
+done < <(sed -nE 's/.*PRODUCT_BUNDLE_IDENTIFIER = "?([^";]+)"?;.*/\1/p' "$PBXPROJ" | sort -u)
+
 SIGNING=()
 if [[ -n "${DEVELOPMENT_TEAM:-}" ]]; then
   SIGNING=(DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates)
