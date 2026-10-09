@@ -1,4 +1,5 @@
 import { api } from '../../lib/api.js';
+import { IS_CHROME } from '../../lib/platform.js';
 import { setSetting } from '../../lib/settings.js';
 import { GOOGLE_DOMAINS } from '../../lib/tools.js';
 import { h, section, toast } from '../ui.js';
@@ -63,7 +64,7 @@ export function render(ctx, el) {
         'div',
         { class: 'card', style: { padding: '12px' } },
         h('div', {}, h('b', {}, `Loupe SEO ${version}`)),
-        h('p', { class: 'note', style: { margin: '4px 0 0' } }, 'Everything runs in your browser. No accounts, no analytics, no data leaves your Mac except the requests Loupe makes to the site you are inspecting (headers, robots.txt, hreflang alternates).'),
+        h('p', { class: 'note', style: { margin: '4px 0 0' } }, `Everything runs in your browser. No accounts, no analytics, no data leaves your ${IS_CHROME ? 'computer' : 'Mac'} except the requests Loupe makes to the site you are inspecting (headers, robots.txt, hreflang alternates).`),
         h(
           'p',
           { class: 'note' },

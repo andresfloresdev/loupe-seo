@@ -1,4 +1,5 @@
 import { api, runInTab } from '../lib/api.js';
+import { IS_CHROME } from '../lib/platform.js';
 import { flashElement, downloadFile } from '../lib/inject.js';
 
 export const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -256,11 +257,27 @@ export async function flash(ctx, selector, index) {
   }
 }
 
+// Chrome saves through the downloads API. Safari has none, so the file is
+// saved by a link clicked inside the inspected page. Either way, a failed save
+// copies the CSV to the clipboard instead.
 export async function saveCsv(ctx, csv, filename) {
   try {
-    await runInTab(ctx.tab.id, downloadFile, [csv, filename, 'text/csv;charset=utf-8']);
+    if (IS_CHROME) await downloadText(csv, filename, 'text/csv;charset=utf-8');
+    else await runInTab(ctx.tab.id, downloadFile, [csv, filename, 'text/csv;charset=utf-8']);
     toast(`Saved ${filename}`);
   } catch {
     await copyText(csv, 'Download blocked, CSV copied instead');
+  }
+}
+
+async function downloadText(text, filename, mime) {
+  if (!IS_CHROME) throw new Error('The downloads API is Chrome only');
+  // A Blob encodes the text as UTF-8, so the CSV's BOM and CRLFs reach the
+  // file byte for byte. The download holds its own reference once started.
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  try {
+    await api.downloads.download({ url, filename });
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 }

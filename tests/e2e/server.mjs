@@ -9,10 +9,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const assets = path.join(here, 'assets');
 
 export function startServer() {
-  const seen = { ua: [] };
+  // ua: every /ua-page request's User-Agent. requests: every request, with what
+  // tells a page load (dest "document") from a fetch (dest "empty").
+  const seen = { ua: [], requests: [] };
   const server = http.createServer(async (req, res) => {
     const base = `http://${req.headers.host}`;
     const url = new URL(req.url, base);
+    seen.requests.push({ path: url.pathname + url.search, ua: req.headers['user-agent'] ?? '', dest: req.headers['sec-fetch-dest'] ?? '' });
     const html = (body, headers = {}, status = 200) => {
       res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', ...headers });
       res.end(body);

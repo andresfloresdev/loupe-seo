@@ -1,6 +1,7 @@
 import { api, runInTab } from '../../lib/api.js';
 import { extractPAA, expandPAA } from '../../lib/inject.js';
 import { UA_PRESETS, resolveUA, applyUA, activeUA } from '../../lib/ua.js';
+import { IS_CHROME } from '../../lib/platform.js';
 import { setSetting } from '../../lib/settings.js';
 import { googleSearchUrl, bingSearchUrl, domainOf, isGoogleSerp, exactPhrase } from '../../lib/tools.js';
 import { toCSV, csvFilename } from '../../lib/csv.js';
@@ -21,16 +22,23 @@ function uaSection(ctx) {
   select.addEventListener('change', syncCustom);
   syncCustom();
 
+  // Chrome switches this tab only (a per-tab rule); Safari can't scope a rule
+  // to a tab, so there it switches every tab until reset.
+  const tabId = ctx.tab?.id;
+  const noTab = IS_CHROME && tabId == null;
   const paintStatus = (ua) => {
     clear(status);
     if (!ua) {
-      status.append(chip('Off', 'neutral', { dot: true }), ' Requests use your browser’s own user agent.');
+      status.append(chip('Off', 'neutral', { dot: true }), IS_CHROME ? ' This tab uses your browser’s own user agent.' : ' Requests use your browser’s own user agent.');
       return;
     }
     const preset = UA_PRESETS.find((p) => p.ua === ua);
-    status.append(chip(`On · ${preset?.name ?? 'Custom'}`, 'good', { dot: true }), ' Applies to every tab until you reset it. The toolbar icon shows “UA”.');
+    status.append(
+      chip(`On · ${preset?.name ?? 'Custom'}`, 'good', { dot: true }),
+      IS_CHROME ? ' Applies to this tab only, until you reset it or close the tab. The toolbar icon shows “UA” on it.' : ' Applies to every tab until you reset it. The toolbar icon shows “UA”.',
+    );
   };
-  activeUA().then(paintStatus, () => paintStatus(null));
+  activeUA(tabId).then(paintStatus, () => paintStatus(null));
 
   const apply = button(
     'Apply',
@@ -38,28 +46,32 @@ function uaSection(ctx) {
       const ua = resolveUA(select.value, custom.value);
       if (select.value === 'custom' && !ua) return toast('Paste a user-agent string first', 'error');
       try {
-        await applyUA(ua);
+        await applyUA(ua, tabId);
         await setSetting('uaPreset', select.value);
         await setSetting('uaCustom', custom.value);
         paintStatus(ua);
-        toast(ua ? 'Switched. Reload the page to see it.' : 'Back to the browser default');
+        toast(ua ? (IS_CHROME ? 'Switched for this tab. Reload it to see it.' : 'Switched. Reload the page to see it.') : 'Back to the browser default');
       } catch (e) {
         toast(`Couldn’t switch: ${e?.message || e}`, 'error');
       }
     },
-    { kind: 'primary', size: 'md' },
+    { kind: 'primary', size: 'md', disabled: noTab },
   );
   const reset = button(
     'Reset',
     async () => {
-      await applyUA(null);
+      try {
+        await applyUA(null, tabId);
+      } catch (e) {
+        return toast(`Couldn’t reset: ${e?.message || e}`, 'error');
+      }
       await setSetting('uaPreset', 'default');
       select.value = 'default';
       syncCustom();
       paintStatus(null);
       toast('Back to the browser default');
     },
-    { size: 'md' },
+    { size: 'md', disabled: noTab },
   );
   const reload = button(
     'Reload tab',
@@ -80,7 +92,13 @@ function uaSection(ctx) {
       customWrap,
       h('div', { class: 'toolbar', style: { margin: '8px 0 0' } }, apply, reset, h('span', { class: 'grow' }), reload),
       status,
-      h('p', { class: 'note', style: { 'margin-top': '6px' } }, 'Rewrites the User-Agent HTTP header, so servers see the crawler. Scripts on the page still read the real one.'),
+      h(
+        'p',
+        { class: 'note', style: { 'margin-top': '6px' } },
+        IS_CHROME
+          ? 'Rewrites the User-Agent HTTP header for this tab only, so servers see the crawler. Scripts on the page still read the real one.'
+          : 'Rewrites the User-Agent HTTP header for every tab until you reset it, so servers see the crawler. Scripts on the page still read the real one.',
+      ),
     ),
   );
 }
