@@ -2,6 +2,8 @@ import { api, runInTab } from '../lib/api.js';
 import { collectPage } from '../lib/inject.js';
 import { fetchPageHeaders, fetchRobotsTxt } from '../lib/net.js';
 import { getSettings } from '../lib/settings.js';
+import { IS_CHROME } from '../lib/platform.js';
+import { syncPopupUA } from '../lib/ua.js';
 import { h, icon, clear, emptyState, reducedMotion } from './ui.js';
 import * as overview from './panels/overview.js';
 import * as headings from './panels/headings.js';
@@ -119,7 +121,9 @@ function errorState() {
   }
   const box = emptyState(
     'Loupe can’t read this page',
-    'Loupe reads web pages once Safari allows it. On a website, click the Loupe icon and choose “Always Allow on This Website”, or turn it on in Safari Settings › Extensions › Loupe SEO › Edit Websites. Browser pages like Start Page can’t be inspected.',
+    IS_CHROME
+      ? 'Loupe reads web pages once your browser allows it. Open the extensions page, click Details on Loupe SEO and set Site access to “On all sites”. Browser pages like the New Tab page and the Web Store can’t be inspected.'
+      : 'Loupe reads web pages once Safari allows it. On a website, click the Loupe icon and choose “Always Allow on This Website”, or turn it on in Safari Settings › Extensions › Loupe SEO › Edit Websites. Browser pages like Start Page can’t be inspected.',
     'lock',
   );
   box.append(h('p', { class: 'note mono' }, e.message));
@@ -169,6 +173,8 @@ async function load() {
   ctx.settings = await getSettings();
   ctx.tab = await resolveTab();
   const url = ctx.tab?.url ?? '';
+  // Chrome: before any request of ours, give them this tab's user agent.
+  await syncPopupUA(ctx.tab?.id).catch((e) => console.warn('[loupe] popup user agent', e));
 
   if (!ctx.tab || (url && !/^https?:/i.test(url))) {
     ctx.pageError = { kind: 'unsupported' };

@@ -1,8 +1,9 @@
 # Loupe SEO
 
-A Safari web extension for page-level SEO checks, modelled on the feature set
-of the [Detailed SEO Extension](https://detailed.com/extension/) (Chrome and
-Firefox only). Written from scratch; no code from Detailed.
+A web extension for Safari and Chromium browsers (Chrome, Brave, Edge, Arc) for
+page-level SEO checks, modelled on the feature set of the
+[Detailed SEO Extension](https://detailed.com/extension/) (Chrome and Firefox
+only). Written from scratch; no code from Detailed.
 
 Manifest V3, no dependencies, no tracking. Everything runs in the browser.
 
@@ -26,12 +27,35 @@ Semrush, Moz, Majestic, Similarweb, Wayback Machine, PageSpeed Insights, Rich
 Results Test, Schema.org Validator, BuiltWith; `site:` search; find copies of the
 selected text; toggle nofollow highlighting.
 
+## Install in Chrome, Brave, Edge, Arc
+
+1. Download `loupe-seo-chrome-<version>.zip` from
+   [Releases](https://github.com/andresfloresdev/loupe-seo/releases) and unzip
+   it. Keep the folder: the browser loads it from there.
+2. Open `chrome://extensions` (Brave: `brave://extensions`, Edge:
+   `edge://extensions`; Arc takes `chrome://extensions`).
+3. Turn on **Developer mode**.
+4. Click **Load unpacked** and pick the unzipped folder (the one with
+   `manifest.json` in it).
+5. Pin it: open the puzzle-piece Extensions menu in the toolbar and click the
+   pin next to Loupe SEO.
+6. Site access: on the extensions page, click **Details** on Loupe SEO and set
+   **Site access** to **On all sites**. That lets it read any page you open and
+   check headers, robots.txt and hreflang on other domains.
+
+To update, unzip the new version over the same folder and click the reload
+arrow on Loupe's card in the extensions page.
+
+In Chromium browsers the user-agent switch applies to the tab you switch only
+(the toolbar badge shows "UA" on that tab), until you reset it or close the
+tab. CSVs go through the browser's downloads.
+
 ## Install in Safari
 
 **Quick (Safari 26+, no Xcode).** Temporary: Safari removes it after 24 hours
 or when it quits.
 
-1. Unzip `loupe-seo-<version>.zip` (or use the `extension/` folder).
+1. Unzip `loupe-seo-safari-<version>.zip` (or use the `extension/` folder).
 2. Safari › Settings › Advanced › tick "Show features for web developers".
 3. Safari › Settings › Developer › **Add Temporary Extension…**, pick the folder.
 4. Click the Loupe icon on a website and allow access ("Always Allow on Every
@@ -53,37 +77,68 @@ unsigned extensions" after every Safari launch.
 
 ```sh
 npm install
-npm run check      # Safari compat gate + unit tests + end-to-end suite
-npm run package    # dist/loupe-seo-<version>.zip
+npm run check      # compat gate + unit tests + end-to-end suite
+npm run package    # dist/loupe-seo-chrome-<version>.zip and dist/loupe-seo-safari-<version>.zip
 npm run icons      # re-render icons from art/*.svg
 ```
 
-- `npm run compat` checks every WebExtension API call and manifest key against
-  MDN browser-compat-data for Safari at the manifest's `strict_min_version`
-  (16.4).
+One source, two builds. `extension/` is the Safari build as is (and what
+`build-safari-app.sh` wraps). The Chrome build is the same files with a
+different `manifest.json`, written by `scripts/build.mjs` into `dist/chrome/`
+(`scripts/manifest.mjs`: adds the `downloads` permission and
+`minimum_chrome_version`, drops `browser_specific_settings`). At run time
+`extension/lib/platform.js` decides the browser, and Chrome-only calls sit behind
+its `IS_CHROME`.
+
+- `npm run compat` checks every WebExtension API call (any namespace), every
+  declarativeNetRequest rule feature and every manifest key against MDN
+  browser-compat-data for Safari at the manifest's `strict_min_version` (16.4).
+  A call or rule feature Safari lacks fails the gate unless it is behind
+  `IS_CHROME`. It also checks that `minimum_chrome_version` covers the newest
+  Chrome feature used.
 - `npm test` runs the pure logic (robots.txt matching, robots directives,
-  indexability, link/image/hreflang analysis, CSV, tool URLs) in Node.
-- `npm run test:e2e` loads the extension unpacked in Chromium (same MV3 code),
-  serves a fixture site with known SEO signals under a strict CSP, and drives the
-  real popup: every tab, CSV download, hreflang status checks, user-agent
-  switching (verified server-side), nofollow highlighting, context-menu targets
-  and People Also Ask extraction. Screenshots land in `tests/e2e/shots/`.
+  indexability, link/image/hreflang analysis, CSV, tool URLs, platform
+  detection, the Chrome manifest, both user-agent paths, the compat gate's
+  guard analysis) in Node.
+- `npm run test:e2e` loads each build unpacked in Chromium, serves a fixture
+  site with known SEO signals under a strict CSP, and drives the real popup:
+  every tab, CSV download, hreflang status checks, user-agent switching
+  (verified server-side), nofollow highlighting, context-menu targets and People
+  Also Ask extraction. It runs twice: the Chrome build (per-tab user agent, CSV
+  through the downloads API), then `extension/`, which takes the Safari path in
+  Chromium because it has no `downloads` permission (global rule, CSV through
+  the page). Safari itself is not run. Screenshots land in
+  `tests/e2e/shots/chrome/` and `tests/e2e/shots/safari/`.
 
 ### Layout
 
 ```
 extension/
   manifest.json
-  background.js          context menus, badge
+  background.js          context menus, badge, per-tab rule cleanup (Chrome)
   content/nofollow.js    nofollow highlighting (CSSOM only, CSP-safe)
   lib/inject.js          functions injected into the page (collector, PAA, flash, download)
   lib/analysis.js        pure analysis
   lib/robots.js          robots.txt parser/matcher (RFC 9309 + Google rules)
   lib/net.js             header, robots.txt and hreflang fetches
-  lib/ua.js              user-agent rule (declarativeNetRequest)
+  lib/platform.js        which browser: Chrome or Safari path
+  lib/ua.js              user-agent rules (declarativeNetRequest)
   lib/tools.js           SEO tool and search URLs
   popup/                 UI (vanilla JS modules, no framework)
+scripts/
+  manifest.mjs           the Chrome manifest, from extension/manifest.json
+  build.mjs              dist/chrome/ and dist/safari/
+  package.mjs            the two zips
+  check-safari-compat.mjs, compat-scan.mjs   the compat gate
 ```
+
+### Chrome notes
+
+- The user-agent switch is a session rule scoped to the tab (`tabIds`), with the
+  badge on that tab; closing the tab drops both. Loupe's own requests from the
+  popup belong to no tab, so a second session rule, limited to requests Loupe
+  starts outside any tab, gives them the user agent of the tab being inspected.
+- CSVs are saved with `downloads.download` (same filename, BOM and CRLF).
 
 ### Safari notes
 

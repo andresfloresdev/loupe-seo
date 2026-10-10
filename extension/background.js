@@ -1,7 +1,8 @@
 import { api } from './lib/api.js';
 import { TOOLS, toolUrl, siteSearchUrl, duplicateSearchUrl } from './lib/tools.js';
 import { getSettings, setSetting } from './lib/settings.js';
-import { syncBadge } from './lib/ua.js';
+import { IS_CHROME, PLATFORM } from './lib/platform.js';
+import { syncBadge, forgetTab, restoreTabBadge } from './lib/ua.js';
 
 // ---- context menus ------------------------------------------------------
 
@@ -100,6 +101,19 @@ api.runtime.onStartup.addListener(() => {
   syncBadge().catch(() => {});
 });
 
+// Chrome's user agent switch is per tab (lib/ua.js): a closed tab takes its
+// rules with it, and Chrome clears a tab's badge on every navigation, so it is
+// put back while the tab stays switched. Safari's switch is global: nothing to
+// do per tab there.
+if (IS_CHROME) {
+  api.tabs.onRemoved.addListener((tabId) => {
+    forgetTab(tabId).catch((e) => console.warn('[loupe] forget tab', e));
+  });
+  api.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status || changeInfo.url) restoreTabBadge(tabId).catch(() => {});
+  });
+}
+
 // Safari can unload and relaunch the background worker without firing either
 // event above. Rebuild once per browser session, tracked in session storage.
 (async () => {
@@ -115,5 +129,6 @@ api.runtime.onStartup.addListener(() => {
   }
 })();
 
-// Test hook: lets the e2e suite reach the pure resolver from the worker.
-globalThis.__loupe = { menuTarget, buildMenus };
+// Test hook: lets the e2e suite reach the pure resolver from the worker, and
+// read which browser path the worker took.
+globalThis.__loupe = { menuTarget, buildMenus, platform: PLATFORM };
