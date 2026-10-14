@@ -135,3 +135,29 @@ export async function checkAlternate(entry, pageUrl) {
     return { error: errorText(e) };
   }
 }
+
+// Fetch a GTM container the page itself loads (the exact gtm.js URL), to read
+// the tags it configures. Only gtm.js?id=GTM-… URLs, without cookies, 4 MB at most.
+export async function fetchGtmContainer(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { error: 'Invalid URL' };
+  }
+  if (!/^https?:$/.test(parsed.protocol) || !/\/gtm\.js$/.test(parsed.pathname) || !/^GTM-[A-Z0-9]+$/.test(parsed.searchParams.get('id') ?? '')) {
+    return { error: 'Not a GTM container URL' };
+  }
+  try {
+    const res = await timedFetch(parsed.href, { credentials: 'omit' });
+    if (!res.ok) {
+      try {
+        await res.body?.cancel();
+      } catch {}
+      return { error: `HTTP ${res.status}` };
+    }
+    return { text: (await res.text()).slice(0, 4 * 1024 * 1024) };
+  } catch (e) {
+    return { error: errorText(e) };
+  }
+}

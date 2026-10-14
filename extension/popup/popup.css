@@ -185,11 +185,13 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
+/* Nine tabs on one line in 460 px: every tab's side padding is 4 px tighter
+   than with eight (7 → 3, the gear 8 → 4). popup.js placeInk matches it. */
 .tabs button {
   position: relative;
   border: 0;
   background: none;
-  padding: 8px 7px 10px;
+  padding: 8px 3px 10px;
   font-size: 12px;
   font-weight: 500;
   color: var(--muted);
@@ -210,7 +212,7 @@ button {
   margin-left: auto;
   display: grid;
   place-items: center;
-  padding: 8px 8px 10px;
+  padding: 8px 4px 10px;
 }
 
 .tab-ink {
@@ -1369,6 +1371,214 @@ pre.raw {
 .note b {
   color: var(--text);
   font-weight: 550;
+}
+
+/* Trackers ---------------------------------------------------------------- */
+
+.chip.outline {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.row.clickable {
+  cursor: pointer;
+  padding-right: 30px;
+  transition: background 0.15s var(--ease);
+}
+
+.row.clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.row-go {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  color: var(--faint);
+  transition: transform 0.25s var(--spring), color 0.2s var(--ease);
+}
+
+.row.clickable:hover .row-go {
+  color: var(--text);
+  transform: translateX(2px);
+}
+
+.tr-overview .chips {
+  padding-top: 1px;
+}
+
+.tr-loading {
+  padding: 18px 4px;
+}
+
+.tr-reading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tr-row {
+  position: relative;
+  padding: 9px 12px 8px;
+  border-top: 1px solid var(--border);
+  transition: background 0.15s var(--ease);
+}
+
+.tr-row:first-child {
+  border-top: 0;
+}
+
+.tr-row:hover {
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+
+.tr-new {
+  animation: rise 0.42s var(--ease) both;
+}
+
+.tr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 20px;
+}
+
+.tr-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tr-name b {
+  font-weight: 600;
+}
+
+.tr-head > .chip {
+  flex: none;
+}
+
+.tr-id {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  min-height: 22px;
+  font-size: 11.5px;
+}
+
+.tr-id-value {
+  font-size: 12px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.tr-id .copy {
+  height: 22px;
+  width: 22px;
+  padding: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tr-id .copy:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.tr-id .copy.done {
+  color: var(--good);
+}
+
+.tr-ev {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.tr-ev summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  cursor: pointer;
+  padding: 1px 4px 1px 2px;
+  margin-left: -2px;
+  border-radius: 5px;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.tr-ev summary::-webkit-details-marker {
+  display: none;
+}
+
+.tr-ev summary:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.tr-ev summary .ico {
+  transition: transform 0.25s var(--ease);
+}
+
+.tr-ev[open] summary .ico {
+  transform: rotate(90deg);
+}
+
+.tr-ev ul {
+  margin: 4px 0 2px;
+  padding: 0 0 0 15px;
+  display: grid;
+  gap: 2px;
+  animation: fade 0.3s var(--ease) both;
+}
+
+.tr-ev li {
+  overflow-wrap: anywhere;
+}
+
+.tr-ev li::marker {
+  color: var(--faint);
+}
+
+.tr-containers {
+  padding: 2px 0;
+}
+
+.tr-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.tr-container + .tr-container {
+  border-top: 1px solid var(--border);
+}
+
+.tr-container .ico {
+  flex: none;
+  color: var(--good);
+}
+
+.tr-container[data-state='failed'] .ico {
+  color: var(--warn);
+}
+
+.tr-container .muted {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tr-empty .empty {
+  padding: 26px 24px;
 }
 
 /* States ------------------------------------------------------------------ */

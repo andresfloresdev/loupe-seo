@@ -69,8 +69,12 @@ function apiNode(key) {
   return node;
 }
 
-// Rule features the code sets as object keys rather than calls.
-const FEATURES = { requestHeaders: 'declarativeNetRequest.RuleAction.requestHeaders' };
+// Rule features and call options the code sets as object keys rather than calls.
+const FEATURES = {
+  requestHeaders: 'declarativeNetRequest.RuleAction.requestHeaders',
+  // scripting.executeScript({ world: 'MAIN' }), lib/api.js runInTab.
+  world: 'scripting.executeScript.world',
+};
 for (const name of Object.keys(api.declarativeNetRequest.RuleCondition)) {
   if (name !== '__compat') FEATURES[name] = `declarativeNetRequest.RuleCondition.${name}`;
 }

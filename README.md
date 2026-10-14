@@ -19,8 +19,15 @@ Manifest V3, no dependencies, no tracking. Everything runs in the browser.
 | Images | Missing alt, empty alt, missing title, lazy, oversized (served at more than 2x display width); thumbnails; CSV of every image URL |
 | Schema | JSON-LD (incl. `@graph`) and microdata as collapsible trees, invalid JSON flagged, Rich Results Test and Schema.org Validator links. Hreflang: every alternate (HTML and `Link` header) fetched for its status code, redirect, and whether it links back; missing x-default, self-reference, invalid codes, duplicates |
 | Social | Facebook/LinkedIn and X card previews, og:image size check, missing tags, raw Open Graph and Twitter tags |
+| Trackers | Analytics tags, ad pixels and consent banners the page runs (GTM, GA4 and the Google tag, Universal Analytics, Google Ads, Clarity, Hotjar, HubSpot, Matomo, Plausible, Fathom, Cloudflare Web Analytics, Segment, Meta Pixel, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft UET, Reddit; Cookiebot, OneTrust, Axeptio, Didomi, CookieYes, Termly, Iubenda, Osano, Complianz, Usercentrics), each with its ID and a copy button, a status from its strongest evidence (Sending, Loaded but not sending, In the page but not loaded, In GTM only) and the evidence itself. Read from the page's code, the requests it made, the trackers' live state and the GTM containers the page loads; a Meta Pixel set only inside GTM shows too. Copy list as plain text |
 | Tools | User-agent switcher (Googlebot smartphone/desktop, Bingbot, GPTBot, ClaudeBot, PerplexityBot, mobile and desktop browsers, custom), People Also Ask extraction from Google results (with "load more"), site: and duplicate-content searches |
 | Settings | Highlight nofollow links on every page, Google domain for searches |
+
+Trackers limits: only the top frame is read; on very heavy pages the browser's
+resource timing buffer can drop early requests, so a tracker that did send may
+show as loaded; content blockers (Brave Shields, uBlock) stop trackers before
+they load, so they show as in the page but not loaded. Loupe only reads: it
+never calls a tracker function.
 
 **Right-click menu** (Loupe SEO): open the page, domain or a link in Ahrefs,
 Semrush, Moz, Majestic, Similarweb, Wayback Machine, PageSpeed Insights, Rich
@@ -40,8 +47,9 @@ selected text; toggle nofollow highlighting.
 5. Pin it: open the puzzle-piece Extensions menu in the toolbar and click the
    pin next to Loupe SEO.
 6. Site access: on the extensions page, click **Details** on Loupe SEO and set
-   **Site access** to **On all sites**. That lets it read any page you open and
-   check headers, robots.txt and hreflang on other domains.
+   **Site access** to **On all sites**. That lets it read any page you open,
+   check headers, robots.txt and hreflang on other domains, and read the GTM
+   containers a page loads.
 
 To update, unzip the new version over the same folder and click the reload
 arrow on Loupe's card in the extensions page.
@@ -59,7 +67,8 @@ or when it quits.
 2. Safari › Settings › Advanced › tick "Show features for web developers".
 3. Safari › Settings › Developer › **Add Temporary Extension…**, pick the folder.
 4. Click the Loupe icon on a website and allow access ("Always Allow on Every
-   Website" lets it check headers, robots.txt and hreflang on other domains).
+   Website" lets it check headers, robots.txt and hreflang on other domains,
+   and read the GTM containers a page loads).
 
 **Permanent (Xcode 26+).** On the Mac, from the repo:
 
@@ -99,12 +108,15 @@ its `IS_CHROME`.
 - `npm test` runs the pure logic (robots.txt matching, robots directives,
   indexability, link/image/hreflang analysis, CSV, tool URLs, platform
   detection, the Chrome manifest, both user-agent paths, the compat gate's
-  guard analysis) in Node.
+  guard analysis, tracker detection on small slices of real GTM containers)
+  in Node.
 - `npm run test:e2e` loads each build unpacked in Chromium, serves a fixture
   site with known SEO signals under a strict CSP, and drives the real popup:
   every tab, CSV download, hreflang status checks, user-agent switching
-  (verified server-side), nofollow highlighting, context-menu targets and People
-  Also Ask extraction. It runs twice: the Chrome build (per-tab user agent, CSV
+  (verified server-side), nofollow highlighting, context-menu targets, People
+  Also Ask extraction and tracker detection (fake tracker hosts and a fake GTM
+  container served by Playwright routes; every other external request is
+  aborted, so nothing leaves the machine). It runs twice: the Chrome build (per-tab user agent, CSV
   through the downloads API), then `extension/`, which takes the Safari path in
   Chromium because it has no `downloads` permission (global rule, CSV through
   the page). Safari itself is not run. Screenshots land in
@@ -117,10 +129,11 @@ extension/
   manifest.json
   background.js          context menus, badge, per-tab rule cleanup (Chrome)
   content/nofollow.js    nofollow highlighting (CSSOM only, CSP-safe)
-  lib/inject.js          functions injected into the page (collector, PAA, flash, download)
+  lib/inject.js          functions injected into the page (collector, tracker signals and live state, PAA, flash, download)
   lib/analysis.js        pure analysis
   lib/robots.js          robots.txt parser/matcher (RFC 9309 + Google rules)
-  lib/net.js             header, robots.txt and hreflang fetches
+  lib/net.js             header, robots.txt, hreflang and GTM container fetches
+  lib/trackers.js        tracker catalog and detection (pure, data-driven)
   lib/platform.js        which browser: Chrome or Safari path
   lib/ua.js              user-agent rules (declarativeNetRequest)
   lib/tools.js           SEO tool and search URLs
