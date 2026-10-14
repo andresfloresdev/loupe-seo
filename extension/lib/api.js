@@ -10,7 +10,9 @@ export function firstResult(results) {
   return first;
 }
 
-export async function runInTab(tabId, func, args = []) {
-  const results = await api.scripting.executeScript({ target: { tabId }, func, args });
+// world: 'MAIN' runs `func` in the page's own JavaScript world, to read globals
+// the page set (Safari 15.4+, Chrome 95+). The default is the isolated world.
+export async function runInTab(tabId, func, args = [], { world } = {}) {
+  const results = await api.scripting.executeScript({ target: { tabId }, func, args, ...(world ? { world } : {}) });
   return firstResult(results);
 }

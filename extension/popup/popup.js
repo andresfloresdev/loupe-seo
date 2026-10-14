@@ -1,6 +1,7 @@
 import { api, runInTab } from '../lib/api.js';
-import { collectPage } from '../lib/inject.js';
-import { fetchPageHeaders, fetchRobotsTxt } from '../lib/net.js';
+import { collectPage, collectTrackerSignals, readTrackerState } from '../lib/inject.js';
+import { fetchPageHeaders, fetchRobotsTxt, fetchGtmContainer } from '../lib/net.js';
+import { detectTrackers, containerTargets, LIVE_GLOBALS } from '../lib/trackers.js';
 import { getSettings } from '../lib/settings.js';
 import { IS_CHROME } from '../lib/platform.js';
 import { syncPopupUA } from '../lib/ua.js';
@@ -11,10 +12,11 @@ import * as links from './panels/links.js';
 import * as images from './panels/images.js';
 import * as schema from './panels/schema.js';
 import * as social from './panels/social.js';
+import * as trackers from './panels/trackers.js';
 import * as tools from './panels/tools.js';
 import * as settings from './panels/settings.js';
 
-const PANELS = { overview, headings, links, images, schema, social, tools, settings };
+const PANELS = { overview, headings, links, images, schema, social, trackers, tools, settings };
 // Panels that work without page data (no host access, or a non-web page).
 const STANDALONE = new Set(['tools', 'settings']);
 const ORDER = Object.keys(PANELS);
@@ -28,11 +30,17 @@ const ctx = {
   robots: null,
   httpReady: null,
   robotsReady: null,
+  // Trackers: page results first, then with the GTM containers the page loads.
+  trackers: null,
+  trackerContainers: null,
+  trackersPageReady: null,
+  trackersReady: null,
   rendered: new Set(),
   show: (name) => showTab(name),
 };
 
 let current = 'overview';
+let loadId = 0;
 
 // ---- tabs ------------------------------------------------------------------
 
@@ -41,7 +49,7 @@ function placeInk(instant) {
   const ink = document.getElementById('tabInk');
   if (!active || !ink) return;
   if (instant) ink.style.transition = 'none';
-  const inset = active.classList.contains('tab-icon') ? 6 : 7;
+  const inset = active.classList.contains('tab-icon') ? 2 : 3; // the tabs' side padding (popup.css), less 2 px on the gear
   ink.style.width = `${active.offsetWidth - inset * 2}px`;
   ink.style.transform = `translateX(${active.offsetLeft + inset}px)`;
   if (instant) requestAnimationFrame(() => ink.style.removeProperty('transition'));
@@ -132,6 +140,48 @@ function errorState() {
 
 // ---- data ------------------------------------------------------------------
 
+// Read-only: the page's code and requests (isolated world), the trackers' live
+// state (the page's own world), then the GTM containers it loads, fetched from
+// here. A later load() wins over an earlier one still running.
+function loadTrackers(tabId, id) {
+  const mine = () => id === loadId;
+  let signals = null;
+  const page = (async () => {
+    signals = await runInTab(tabId, collectTrackerSignals);
+    if (!signals) throw new Error('The page returned no data.');
+    signals.live = await runInTab(tabId, readTrackerState, [LIVE_GLOBALS], { world: 'MAIN' }).catch((e) => {
+      console.warn('[loupe] page-world read', e);
+      return null;
+    });
+    const result = detectTrackers(signals);
+    if (mine()) {
+      ctx.trackerContainers = containerTargets(signals, result);
+      ctx.trackers = result;
+    }
+    return result;
+  })().catch((e) => {
+    const result = { error: String(e?.message || e) };
+    if (mine()) ctx.trackers = result;
+    return result;
+  });
+  const all = page
+    .then(async (result) => {
+      if (result.error) return result;
+      const targets = containerTargets(signals, result);
+      if (!targets.length) return result;
+      const containers = await Promise.all(targets.map(async (t) => ({ ...t, ...(await fetchGtmContainer(t.url)) })));
+      const full = detectTrackers(signals, containers);
+      if (mine()) ctx.trackers = full;
+      return full;
+    })
+    .catch((e) => {
+      // Keep the page results; the containers just stay unread.
+      console.warn('[loupe] GTM containers', e);
+      return ctx.trackers;
+    });
+  return { page, all };
+}
+
 async function resolveTab() {
   // ?tabId= lets the popup page inspect a specific tab (used by the test suite).
   const forced = new URLSearchParams(location.search).get('tabId');
@@ -166,6 +216,9 @@ async function load() {
   ctx.pageError = null;
   ctx.http = null;
   ctx.robots = null;
+  ctx.trackers = null;
+  ctx.trackerContainers = null;
+  const id = ++loadId;
   ctx.rendered.clear();
   document.getElementById('app').dataset.state = 'loading';
   clear(document.getElementById(`panel-${current}`)).append(loadingState());
@@ -191,9 +244,14 @@ async function load() {
   if (ctx.page) {
     ctx.httpReady = fetchPageHeaders(pageUrl).then((r) => (ctx.http = r.error ? { ...r, failed: true } : r));
     ctx.robotsReady = fetchRobotsTxt(pageUrl).then((r) => (ctx.robots = r.error ? { ...r, failed: true } : r));
+    const t = loadTrackers(ctx.tab.id, id);
+    ctx.trackersPageReady = t.page;
+    ctx.trackersReady = t.all;
   } else {
     ctx.httpReady = Promise.resolve(null);
     ctx.robotsReady = Promise.resolve(null);
+    ctx.trackersPageReady = Promise.resolve(null);
+    ctx.trackersReady = Promise.resolve(null);
   }
 
   setHeader();

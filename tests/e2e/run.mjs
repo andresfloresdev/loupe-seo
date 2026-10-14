@@ -14,7 +14,7 @@ import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startServer } from './server.mjs';
+import { startServer, fakeThirdParty, FIRING_PIXEL, GTM_HTML_PIXEL, GTM_TEMPLATE_PIXEL, QUIET_PIXEL, BLOCKED_PIXEL, CSP_PIXEL, GTM_ID, GA4_ID, CLARITY_ID, ADS_ID, BLOCKED_FBEVENTS } from './server.mjs';
 import { build } from '../../scripts/build.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +62,22 @@ async function suite(mode, extDir) {
     args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`],
   });
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  // Third-party hosts: the tracker fakes in server.mjs answer, every other
+  // external request is aborted, so the suite never reaches the internet.
+  // `from` tells the page's own requests from the popup's.
+  const external = [];
+  await context.route(/^https?:\/\/(?!127\.0\.0\.1[:/])/, (route) => {
+    const req = route.request();
+    let from = '';
+    try {
+      from = req.frame().url();
+    } catch {}
+    const fake = fakeThirdParty(req.url());
+    external.push({ url: req.url(), from, served: Boolean(fake), hit: Boolean(fake?.hit) });
+    if (!fake) return route.abort('blockedbyclient');
+    const { hit, ...response } = fake;
+    return route.fulfill(response);
+  });
 
   let [sw] = context.serviceWorkers();
   if (!sw) sw = await context.waitForEvent('serviceworker');
@@ -122,6 +138,23 @@ async function suite(mode, extDir) {
   check('sitemaps from robots.txt', overview.includes('sitemap-news.xml'));
   const h1Count = await popup.locator('#panel-overview .hd-counts .metric').first().locator('.metric-num').innerText();
   check('H1 count tile', h1Count === '1', h1Count);
+  check('Overview: no trackers on this page', /Trackers\s*None found/.test(overview), overview.slice(overview.indexOf('Trackers'), overview.indexOf('Trackers') + 40));
+  // Nine tabs on one line in the 460 px popup: no wrap, no scroll.
+  const bar = await popup.evaluate(() => {
+    const tabs = document.getElementById('tabs');
+    const buttons = [...tabs.querySelectorAll('[data-tab]')];
+    const r = tabs.getBoundingClientRect();
+    return {
+      count: buttons.length,
+      tops: new Set(buttons.map((b) => b.offsetTop)).size,
+      overflow: tabs.scrollWidth - tabs.clientWidth,
+      right: Math.round(r.right - Math.max(...buttons.map((b) => b.getBoundingClientRect().right))),
+      order: buttons.map((b) => b.dataset.tab).join(' '),
+    };
+  });
+  check('tab bar: nine tabs, Trackers between Social and Tools', bar.count === 9 && /social trackers tools settings$/.test(bar.order), bar.order);
+  check('tab bar: one line, no scroll', bar.tops === 1 && bar.overflow <= 0 && bar.right >= 0, JSON.stringify(bar));
+  console.log(`    tab bar: ${bar.right}px to spare`);
   await shot(popup, 'light-1-overview');
   await tallShot(popup, 'light-1-overview-full');
 
@@ -237,6 +270,169 @@ async function suite(mode, extDir) {
   check('og:image size measured', social.includes('1200×630'), social.slice(0, 300));
   check('all key social tags present', social.includes('All key tags present'));
   await tallShot(popup, 'light-7-social-full');
+
+  // ------------------------------------------------------------------ trackers
+  console.log('\nTrackers');
+  const tabIdAt = (url) => sw.evaluate(async (u) => (await chrome.tabs.query({})).find((t) => t.url === u)?.id, url);
+  const hits = () => external.filter((r) => r.hit).map((r) => r.url);
+  const readTrackers = (p) =>
+    p.evaluate(() =>
+      [...document.querySelectorAll('#panel-trackers .tr-row')].map((r) => ({
+        name: r.querySelector('.tr-name b')?.textContent ?? '',
+        id: r.querySelector('.tr-id-value')?.textContent ?? null,
+        note: r.querySelector('.tr-id.muted')?.textContent ?? null,
+        status: r.dataset.status,
+        label: r.querySelector('.tr-head > .chip')?.textContent ?? '',
+        evidence: [...r.querySelectorAll('.tr-ev li')].map((li) => li.textContent),
+      })),
+    );
+  const trackersDone = (p) =>
+    p.waitForFunction(
+      () => {
+        const el = document.querySelector('#panel-trackers');
+        return el && !el.querySelector('.spinner') && (el.querySelector('.tr-row') || el.querySelector('.tr-empty'));
+      },
+      null,
+      { timeout: 15000 },
+    );
+  async function trackersPage(pagePath) {
+    const page = await context.newPage();
+    await page.goto(`${base}${pagePath}`);
+    await sleep(1200); // the page's own hits go out
+    return { page, tabId: await tabIdAt(`${base}${pagePath}`) };
+  }
+  async function trackersPopup(tabId, opts) {
+    const p = await loadedPopup(tabId, opts);
+    await tab(p, 'trackers');
+    await trackersDone(p);
+    await sleep(600);
+    return p;
+  }
+  const find = (list, name, id) => list.find((r) => r.name === name && (id === undefined || r.id === id));
+  const show = (r) => (r ? `${r.name} ${r.id ?? r.note} ${r.status} [${r.evidence.join('; ')}]` : 'missing');
+
+  {
+    const { page: trPage, tabId: trTab } = await trackersPage('/trackers');
+    const hitsBefore = hits().length;
+    const trPopup = await trackersPopup(trTab);
+    const list = await readTrackers(trPopup);
+    const meta = find(list, 'Meta Pixel', FIRING_PIXEL);
+    check('Meta Pixel firing: Sending, with its ID', meta?.status === 'sending' && meta.label === 'Sending', show(meta));
+    check('Meta Pixel ID read from the page’s live state (MAIN world)', meta?.evidence.includes('live fbq state'), show(meta));
+    const htmlPixel = find(list, 'Meta Pixel', GTM_HTML_PIXEL);
+    check('Meta Pixel only in GTM, from the escaped Custom HTML: In GTM only', htmlPixel?.status === 'gtm-only' && htmlPixel.label === 'In GTM only' && htmlPixel.evidence.some((e) => e === `fbq init in ${GTM_ID}`), show(htmlPixel));
+    const tplPixel = find(list, 'Meta Pixel', GTM_TEMPLATE_PIXEL);
+    check('Meta Pixel only in GTM, from vtp_pixelId: In GTM only', tplPixel?.status === 'gtm-only' && tplPixel.evidence.some((e) => e === `Meta Pixel template in ${GTM_ID}`), show(tplPixel));
+    const gtm = find(list, 'Google Tag Manager', GTM_ID);
+    check('GTM container loaded, with its ID', gtm?.status === 'loaded' && gtm.label === 'Loaded', show(gtm));
+    const ga4 = find(list, 'Google Analytics 4', GA4_ID);
+    check('GA4: Sending, with its ID', ga4?.status === 'sending', show(ga4));
+    const clarity = find(list, 'Microsoft Clarity', CLARITY_ID);
+    check('Clarity: Sending, with its project ID', clarity?.status === 'sending', show(clarity));
+    const ads = find(list, 'Google Ads', ADS_ID);
+    check('Google Ads conversion tag in GTM only', ads?.status === 'gtm-only', show(ads));
+    check('consent banner named, without an ID', find(list, 'Cookiebot')?.id === null && find(list, 'Cookiebot')?.note === null, show(find(list, 'Cookiebot')));
+    check('placeholder G-XXXXXXXXXX ignored (page, hit and container)', !list.some((r) => /XXXX/.test(r.id ?? '')), list.map((r) => r.id).join(' '));
+    const groups = await trPopup.locator('#panel-trackers .block-title').allInnerTexts();
+    check('groups: analytics, ad pixels, consent', /^Analytics and tags/i.test(groups[0] ?? '') && /^Ad pixels/i.test(groups[1] ?? '') && /^Consent banner/i.test(groups[2] ?? ''), groups.join(' | '));
+    const containers = await trPopup.locator('#panel-trackers .tr-container').allInnerTexts();
+    check('GTM container read', containers.length === 1 && containers[0].includes(GTM_ID) && containers[0].includes('Read'), containers.join(' | '));
+    const popupFetch = external.filter((r) => r.url.includes(`gtm.js?id=${GTM_ID}`) && r.from.startsWith('chrome-extension://'));
+    check('the popup’s container fetch went through the route', popupFetch.length >= 1 && popupFetch.every((r) => r.served), JSON.stringify(external.filter((r) => r.url.includes('gtm.js')).map((r) => [r.url, r.from.slice(0, 20)])));
+    await sleep(1500);
+    check('opening Loupe sent no tracker hit', hits().length === hitsBefore, hits().slice(hitsBefore).join(' '));
+
+    // Copy one ID, then the whole list.
+    await trPopup.locator('#panel-trackers .tr-row', { hasText: FIRING_PIXEL }).locator('.tr-id .copy').click();
+    await sleep(200);
+    check('copy button copies the Meta Pixel ID', (await trPopup.evaluate(() => navigator.clipboard.readText())) === FIRING_PIXEL);
+    await trPopup.locator('#panel-trackers .toolbar button', { hasText: 'Copy list' }).click();
+    await sleep(200);
+    const copied = await trPopup.evaluate(() => navigator.clipboard.readText());
+    check('Copy list: one "Tracker: ID" per line', copied.split('\n').includes(`Meta Pixel: ${FIRING_PIXEL}`) && copied.split('\n').includes(`Google Analytics 4: ${GA4_ID}`) && copied.split('\n').includes('Cookiebot'), copied);
+
+    await trPopup.locator('#panel-trackers .tr-row', { hasText: FIRING_PIXEL }).locator('summary').click();
+    await sleep(400);
+    await shot(trPopup, 'light-12-trackers');
+    await tallShot(trPopup, 'light-12-trackers-full');
+
+    // Overview: chips, and a click opens the tab.
+    await tab(trPopup, 'overview');
+    await sleep(500);
+    const row = trPopup.locator('#panel-overview .tr-overview');
+    const chips = await row.locator('.chip').allInnerTexts();
+    check('Overview row names the trackers, Meta Pixel with its ID', [`Meta Pixel ${FIRING_PIXEL}`, 'GA4', 'Clarity', 'GTM', 'Cookiebot'].every((c) => chips.includes(c)), chips.join(' | '));
+    await row.scrollIntoViewIfNeeded();
+    await sleep(300);
+    await row.screenshot({ path: path.join(shots, 'light-13-overview-trackers-row.png') });
+    await tallShot(trPopup, 'light-13-overview-trackers-full');
+    await row.click();
+    await sleep(500);
+    check('clicking the Overview row opens the Trackers tab', (await trPopup.locator('.tabs [data-tab="trackers"]').getAttribute('aria-selected')) === 'true');
+    await trPopup.keyboard.press('9');
+    await sleep(300);
+    check('key 9 opens Settings, the ninth tab', (await trPopup.locator('.tabs [data-tab="settings"]').getAttribute('aria-selected')) === 'true');
+    await trPopup.keyboard.press('7');
+    await sleep(300);
+    check('key 7 opens Trackers', (await trPopup.locator('.tabs [data-tab="trackers"]').getAttribute('aria-selected')) === 'true');
+
+    const darkTr = await trackersPopup(trTab, { dark: true });
+    await darkTr.locator('#panel-trackers .tr-row', { hasText: FIRING_PIXEL }).locator('summary').click();
+    await sleep(400);
+    await shot(darkTr, 'dark-12-trackers');
+    await tallShot(darkTr, 'dark-12-trackers-full');
+    await tab(darkTr, 'overview');
+    await sleep(500);
+    const darkRow = darkTr.locator('#panel-overview .tr-overview');
+    await darkRow.scrollIntoViewIfNeeded();
+    await sleep(300);
+    await darkRow.screenshot({ path: path.join(shots, 'dark-13-overview-trackers-row.png') });
+    await darkTr.close();
+    await trPopup.close();
+    await trPage.close();
+  }
+
+  {
+    const { page: q, tabId } = await trackersPage('/trackers-quiet');
+    const p = await trackersPopup(tabId);
+    const r = find(await readTrackers(p), 'Meta Pixel', QUIET_PIXEL);
+    check('pixel that inits but sends nothing: Loaded, not sending', r?.status === 'loaded' && r.label === 'Loaded, not sending', show(r));
+    check('no hit went out for it', !hits().some((u) => u.includes(QUIET_PIXEL)));
+    await p.close();
+    await q.close();
+  }
+
+  {
+    const { page: b, tabId } = await trackersPage('/trackers-blocked');
+    const p = await trackersPopup(tabId);
+    const r = find(await readTrackers(p), 'Meta Pixel', BLOCKED_PIXEL);
+    check('pixel whose script is blocked: In the page, not loaded', r?.status === 'in-page' && r.label === 'In the page, not loaded', show(r));
+    check('its fbevents.js was aborted', external.some((e) => e.url === BLOCKED_FBEVENTS && !e.served));
+    await p.close();
+    await b.close();
+  }
+
+  {
+    const { page: c, tabId } = await trackersPage('/trackers-csp');
+    const p = await trackersPopup(tabId);
+    const r = find(await readTrackers(p), 'Meta Pixel', CSP_PIXEL);
+    check('page under a strict CSP: Sending, live state read', r?.status === 'sending' && r.evidence.includes('live fbq state'), show(r));
+    await p.close();
+    await c.close();
+  }
+
+  {
+    const { page: n, tabId } = await trackersPage('/trackers-none');
+    const p = await trackersPopup(tabId);
+    const empty = await p.locator('#panel-trackers').innerText();
+    check('no-tracker page: empty state says what was checked', /No trackers found/.test(empty) && /1 script tag, 1 inline script, \d+ requests? and the page’s live state/.test(empty), empty);
+    await shot(p, 'light-14-trackers-empty');
+    const dn = await trackersPopup(tabId, { dark: true });
+    await shot(dn, 'dark-14-trackers-empty');
+    await dn.close();
+    await p.close();
+    await n.close();
+  }
 
   // ------------------------------------------------------------------ tools / UA
   // Loupe's own requests for a page: the header fetch and robots.txt (fetches,
@@ -457,7 +653,7 @@ async function suite(mode, extDir) {
   await dark.waitForFunction(() => !document.querySelector('#panel-overview .spinner'), null, { timeout: 15000 });
   await sleep(800);
   await shot(dark, 'dark-1-overview');
-  for (const [i, name] of ['headings', 'links', 'images', 'schema', 'social', 'tools'].entries()) {
+  for (const [i, name] of ['headings', 'links', 'images', 'schema', 'social', 'trackers', 'tools'].entries()) {
     await tab(dark, name);
     await sleep(900);
     await shot(dark, `dark-${i + 2}-${name}`);

@@ -29,6 +29,7 @@ import {
 } from '../../lib/analysis.js';
 import { TOOLS, toolUrl } from '../../lib/tools.js';
 import { statusText } from '../../lib/net.js';
+import { STATUS, statusLabel, overviewChips } from '../../lib/trackers.js';
 import { linksCsv } from './links.js';
 import { csvFilename } from '../../lib/csv.js';
 
@@ -84,6 +85,53 @@ function asyncRow(label, ready, renderContent) {
     main.classList.add('fade-in');
     if (copy) el.append(copyButton(copy, { label: null, title: `Copy ${label.toLowerCase()}` }));
   });
+  return el;
+}
+
+// Trackers found on the page, as chips. Paints with the page results, again
+// once the GTM containers are read, and opens the Trackers tab on click.
+function trackersRow(ctx) {
+  const main = h('div', { class: 'row-main' }, h('div', { class: 'row-value muted' }, spinner(), ' Checking…'));
+  const open = () => ctx.show('trackers');
+  const el = h(
+    'div',
+    {
+      class: 'row clickable tr-overview',
+      role: 'button',
+      tabindex: '0',
+      title: 'Open the Trackers tab',
+      onClick: open,
+      onKeydown: (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        open();
+      },
+    },
+    h('div', { class: 'row-label' }, 'Trackers'),
+    main,
+    h('span', { class: 'row-go' }, icon('chevron', 13)),
+  );
+  let painted = false;
+  const paint = () => {
+    const r = ctx.trackers;
+    clear(main);
+    if (!r || r.error) append(main, value(`Couldn’t read the page${r?.error ? ` (${r.error})` : ''}`, 'muted'));
+    else if (!r.trackers.length) append(main, value('None found', 'muted'));
+    else {
+      append(
+        main,
+        h(
+          'div',
+          { class: 'chips' },
+          overviewChips(r.trackers).map((c) => chip(c.label, STATUS[c.status]?.kind ?? 'neutral', { dot: true, title: `${statusLabel(c)}` })),
+        ),
+      );
+    }
+    if (!painted) main.classList.add('fade-in');
+    painted = true;
+  };
+  ctx.trackersPageReady.then(paint);
+  ctx.trackersReady.then(paint);
   return el;
 }
 
@@ -204,6 +252,7 @@ export function render(ctx, el) {
     }),
     row('Language', head.lang ? value(head.lang, 'mono') : [value('Missing', 'missing'), meta(chip('Add a lang attribute on <html>', 'warn'))], head.lang),
     row('Word count', value(fmt(page.wordCount))),
+    trackersRow(ctx),
     head.keywords ? row('Keywords', value(head.keywords), head.keywords) : null,
     head.author ? row('Author', value(head.author), head.author) : null,
     head.generator ? row('Generator', value(head.generator), head.generator) : null,

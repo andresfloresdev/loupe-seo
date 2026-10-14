@@ -371,3 +371,133 @@ export function expandPAA(max) {
   }
   return clicks;
 }
+
+// What the page's code holds and which requests it made, for the Trackers tab
+// (lib/trackers.js reads it). Runs in the isolated world like collectPage.
+// Inline scripts are capped at 200 KB each and 2 MB in all; `capped` says so.
+export function collectTrackerSignals() {
+  const PER_SCRIPT = 200_000;
+  const TOTAL = 2_000_000;
+  const out = { url: location.href, scripts: [], inline: [], noscript: [], iframes: [], resources: [], capped: null };
+  let total = 0;
+  let cutScripts = 0;
+  let cutTotal = 0;
+  const attrs = (el) => {
+    let s = '';
+    for (const a of Array.from(el.attributes)) {
+      if (a.name !== 'src') s += ` ${a.name}="${String(a.value).slice(0, 400)}"`;
+    }
+    return s.slice(0, 1500);
+  };
+  for (const el of Array.from(document.querySelectorAll('script'))) {
+    try {
+      const type = (el.getAttribute('type') || '').trim().toLowerCase();
+      if (type === 'application/ld+json' || type === 'importmap' || type === 'speculationrules') continue;
+      if (el.hasAttribute('src')) {
+        if (out.scripts.length < 500) out.scripts.push({ src: String(el.src).slice(0, 2000), attrs: attrs(el) });
+        continue;
+      }
+      let text = el.textContent || '';
+      if (!text.trim()) continue;
+      if (text.length > PER_SCRIPT) {
+        text = text.slice(0, PER_SCRIPT);
+        cutScripts++;
+      }
+      if (total + text.length > TOTAL) {
+        text = text.slice(0, Math.max(0, TOTAL - total));
+        cutTotal++;
+      }
+      if (!text) continue;
+      total += text.length;
+      out.inline.push(text);
+    } catch {}
+  }
+  for (const el of Array.from(document.querySelectorAll('noscript')).slice(0, 100)) {
+    try {
+      out.noscript.push(String(el.textContent || '').slice(0, 20_000));
+    } catch {}
+  }
+  for (const el of Array.from(document.querySelectorAll('iframe[src]')).slice(0, 200)) {
+    try {
+      out.iframes.push(String(el.src).slice(0, 2000));
+    } catch {}
+  }
+  try {
+    for (const e of performance.getEntriesByType('resource').slice(0, 5000)) out.resources.push(String(e.name).slice(0, 2000));
+  } catch {}
+  if (cutScripts || cutTotal) out.capped = { scripts: cutScripts, total: cutTotal > 0, limit: '200 KB per script, 2 MB in all' };
+  return out;
+}
+
+// Trackers' live state, read in the page's own world (executeScript world
+// MAIN). Read-only: property reads only, plus Meta's getState() as a fallback,
+// which returns state and sends nothing. Every read is wrapped, and only plain
+// strings come back. `names`: window globals whose presence counts.
+// `ran` says whether a library's own runtime is there, beyond the stub the
+// base code defines: the browser lists a request a content blocker stopped in
+// resource timing as if it had loaded, so a script's request alone is no proof.
+export function readTrackerState(names) {
+  const out = { globals: [], values: {}, ran: {} };
+  const w = window;
+  const add = (key, v) => {
+    if (typeof v !== 'string' && typeof v !== 'number') return;
+    const s = String(v).slice(0, 120);
+    const list = (out.values[key] ??= []);
+    if (s && list.length < 50 && !list.includes(s)) list.push(s);
+  };
+  const read = (fn) => {
+    try {
+      fn();
+    } catch {}
+  };
+  for (const name of Array.isArray(names) ? names.slice(0, 100) : []) {
+    read(() => {
+      if (typeof name === 'string' && name in w && w[name] != null) out.globals.push(name);
+    });
+  }
+  // Meta Pixel: fbevents.js replaces the stub's queue with its own instance.
+  read(() => {
+    out.ran.fbq = !!(w.fbq && (typeof w.fbq.instance === 'object' || typeof w.fbq.getState === 'function'));
+  });
+  // Google: gtm.js and gtag.js register their containers and tags here.
+  read(() => {
+    out.ran.google = !!(w.google_tag_manager && typeof w.google_tag_manager === 'object');
+  });
+  // Meta Pixel: the pixels fbevents.js initialised, then inits still queued.
+  read(() => {
+    const byId = w.fbq?.instance?.pixelsByID;
+    if (byId && typeof byId === 'object') for (const id of Object.keys(byId)) add('fbq.pixels', id);
+  });
+  read(() => {
+    if (out.values['fbq.pixels'] || typeof w.fbq?.getState !== 'function') return;
+    for (const px of w.fbq.getState()?.pixels ?? []) add('fbq.pixels', px?.id);
+  });
+  read(() => {
+    for (const args of Array.from(w.fbq?.queue ?? []).slice(0, 200)) read(() => args?.[0] === 'init' && add('fbq.queue', args[1]));
+  });
+  // Google: containers and tags the runtime holds, and gtag('config') calls.
+  read(() => {
+    const gtm = w.google_tag_manager;
+    if (gtm && typeof gtm === 'object') for (const key of Object.keys(gtm).slice(0, 200)) if (/^[A-Z]{1,3}-/.test(key)) add('gtm', key);
+  });
+  read(() => {
+    if (!Array.isArray(w.dataLayer)) return;
+    for (const entry of w.dataLayer.slice(0, 1000)) read(() => entry?.[0] === 'config' && add('dataLayer.config', entry[1]));
+  });
+  // LinkedIn, TikTok, Hotjar, Matomo.
+  read(() => add('linkedin.partner', w._linkedin_partner_id));
+  read(() => {
+    for (const id of Array.from(w._linkedin_data_partner_ids ?? []).slice(0, 20)) add('linkedin.partner', id);
+  });
+  read(() => {
+    const pixels = w.ttq?._i;
+    if (pixels && typeof pixels === 'object') for (const id of Object.keys(pixels).slice(0, 20)) add('ttq.pixels', id);
+  });
+  read(() => add('hotjar.site', w.hjSiteSettings?.site_id));
+  read(() => add('hotjar.settings', w._hjSettings?.hjid));
+  read(() => {
+    if (!Array.isArray(w._paq)) return;
+    for (const entry of w._paq.slice(0, 200)) read(() => entry?.[0] === 'setSiteId' && add('matomo.site', entry[1]));
+  });
+  return out;
+}
