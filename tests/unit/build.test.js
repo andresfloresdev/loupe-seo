@@ -53,8 +53,8 @@ test('Safari’s manifest is the source and still sets strict_min_version 16.4',
   assert.equal(manifest.permissions.includes('downloads'), false);
 });
 
-test('version 1.2.0 in package.json and the manifest', () => {
-  assert.equal(manifest.version, '1.2.0');
+test('version 1.3.0 in package.json and the manifest', () => {
+  assert.equal(manifest.version, '1.3.0');
   assert.equal(pkg.version, manifest.version);
 });
 

@@ -1,7 +1,9 @@
 import { api, runInTab } from '../lib/api.js';
-import { collectPage, collectTrackerSignals, readTrackerState } from '../lib/inject.js';
-import { fetchPageHeaders, fetchRobotsTxt, fetchGtmContainer } from '../lib/net.js';
+import { collectPage, collectTrackerSignals, readTrackerState, collectTechSignals, readTechState } from '../lib/inject.js';
+import { fetchPageHeaders, fetchRobotsTxt, fetchGtmContainer, fetchWordPressProbes } from '../lib/net.js';
 import { detectTrackers, containerTargets, LIVE_GLOBALS } from '../lib/trackers.js';
+import { detectTech, probeTargets, latestTargets, withLatest } from '../lib/tech.js';
+import { fetchLatest } from '../lib/latest.js';
 import { getSettings } from '../lib/settings.js';
 import { IS_CHROME } from '../lib/platform.js';
 import { syncPopupUA } from '../lib/ua.js';
@@ -12,11 +14,12 @@ import * as links from './panels/links.js';
 import * as images from './panels/images.js';
 import * as schema from './panels/schema.js';
 import * as social from './panels/social.js';
+import * as tech from './panels/tech.js';
 import * as trackers from './panels/trackers.js';
 import * as tools from './panels/tools.js';
 import * as settings from './panels/settings.js';
 
-const PANELS = { overview, headings, links, images, schema, social, trackers, tools, settings };
+const PANELS = { overview, headings, links, images, schema, social, tech, trackers, tools, settings };
 // Panels that work without page data (no host access, or a non-web page).
 const STANDALONE = new Set(['tools', 'settings']);
 const ORDER = Object.keys(PANELS);
@@ -35,6 +38,12 @@ const ctx = {
   trackerContainers: null,
   trackersPageReady: null,
   trackersReady: null,
+  // Tech: page results first, then the WordPress probes, then latest versions.
+  tech: null,
+  techProbeTargets: null,
+  techPageReady: null,
+  techProbesReady: null,
+  techReady: null,
   rendered: new Set(),
   show: (name) => showTab(name),
 };
@@ -98,10 +107,12 @@ function setupTabs() {
     const b = e.target.closest('[data-tab]');
     if (b) showTab(b.dataset.tab);
   });
+  // 1 to 9 for the first nine tabs, 0 for the tenth.
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, select')) return;
-    const n = Number(e.key);
-    if (n >= 1 && n <= ORDER.length) showTab(ORDER[n - 1]);
+    if (!/^[0-9]$/.test(e.key) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const n = e.key === '0' ? 10 : Number(e.key);
+    if (n <= ORDER.length) showTab(ORDER[n - 1]);
   });
   new ResizeObserver(() => placeInk(true)).observe(document.getElementById('tabs'));
 }
@@ -143,12 +154,13 @@ function errorState() {
 // Read-only: the page's code and requests (isolated world), the trackers' live
 // state (the page's own world), then the GTM containers it loads, fetched from
 // here. A later load() wins over an earlier one still running.
-function loadTrackers(tabId, id) {
+function loadTrackers(tabId, id, signalsReady) {
   const mine = () => id === loadId;
   let signals = null;
   const page = (async () => {
-    signals = await runInTab(tabId, collectTrackerSignals);
-    if (!signals) throw new Error('The page returned no data.');
+    const base = await signalsReady;
+    if (!base) throw new Error('The page returned no data.');
+    signals = { ...base };
     signals.live = await runInTab(tabId, readTrackerState, [LIVE_GLOBALS], { world: 'MAIN' }).catch((e) => {
       console.warn('[loupe] page-world read', e);
       return null;
@@ -180,6 +192,69 @@ function loadTrackers(tabId, id) {
       return ctx.trackers;
     });
   return { page, all };
+}
+
+// Read-only too: the page's code, markers and live state, its response
+// headers (the Overview's fetch, not a second one), then on WordPress pages a
+// few of the site's own URLs, then the latest versions. Each stage repaints.
+function loadTech(tabId, id, signalsReady) {
+  const mine = () => id === loadId;
+  const httpReady = ctx.httpReady;
+  let signals = null;
+  let headers = null;
+  const page = (async () => {
+    const [base, own, live] = await Promise.all([
+      signalsReady,
+      runInTab(tabId, collectTechSignals),
+      runInTab(tabId, readTechState, [], { world: 'MAIN' }).catch((e) => {
+        console.warn('[loupe] page-world read', e);
+        return null;
+      }),
+    ]);
+    if (!base || !own) throw new Error('The page returned no data.');
+    signals = { ...base, ...own, live };
+    const http = await httpReady;
+    headers = http && !http.failed ? http.headers : null;
+    const result = detectTech(signals, headers);
+    if (mine()) {
+      ctx.techProbeTargets = probeTargets(signals, headers, result);
+      ctx.tech = result;
+    }
+    return result;
+  })().catch((e) => {
+    const result = { error: String(e?.message || e) };
+    if (mine()) ctx.tech = result;
+    return result;
+  });
+  const probes = page
+    .then(async (result) => {
+      if (result.error) return result;
+      const targets = probeTargets(signals, headers, result);
+      if (!targets) return result;
+      const core = result.tech.find((r) => r.id === 'wordpress')?.version;
+      const answers = await fetchWordPressProbes(signals.url, targets, { coreKnown: !!core });
+      const full = detectTech(signals, headers, answers);
+      if (mine()) ctx.tech = full;
+      return full;
+    })
+    .catch((e) => {
+      // Keep the page results; the probes just stay unread.
+      console.warn('[loupe] WordPress probes', e);
+      return ctx.tech;
+    });
+  const all = probes
+    .then(async (result) => {
+      if (!result || result.error) return result;
+      const latest = await fetchLatest(latestTargets(result));
+      const full = withLatest(result, latest);
+      if (mine()) ctx.tech = full;
+      return full;
+    })
+    .catch((e) => {
+      console.warn('[loupe] latest versions', e);
+      return ctx.tech;
+    });
+  return { page, probes, all };
 }
 
 async function resolveTab() {
@@ -218,6 +293,8 @@ async function load() {
   ctx.robots = null;
   ctx.trackers = null;
   ctx.trackerContainers = null;
+  ctx.tech = null;
+  ctx.techProbeTargets = null;
   const id = ++loadId;
   ctx.rendered.clear();
   document.getElementById('app').dataset.state = 'loading';
@@ -244,14 +321,23 @@ async function load() {
   if (ctx.page) {
     ctx.httpReady = fetchPageHeaders(pageUrl).then((r) => (ctx.http = r.error ? { ...r, failed: true } : r));
     ctx.robotsReady = fetchRobotsTxt(pageUrl).then((r) => (ctx.robots = r.error ? { ...r, failed: true } : r));
-    const t = loadTrackers(ctx.tab.id, id);
+    // One read of the page's scripts and requests, for Trackers and Tech.
+    const signals = runInTab(ctx.tab.id, collectTrackerSignals);
+    const t = loadTrackers(ctx.tab.id, id, signals);
     ctx.trackersPageReady = t.page;
     ctx.trackersReady = t.all;
+    const te = loadTech(ctx.tab.id, id, signals.catch(() => null));
+    ctx.techPageReady = te.page;
+    ctx.techProbesReady = te.probes;
+    ctx.techReady = te.all;
   } else {
     ctx.httpReady = Promise.resolve(null);
     ctx.robotsReady = Promise.resolve(null);
     ctx.trackersPageReady = Promise.resolve(null);
     ctx.trackersReady = Promise.resolve(null);
+    ctx.techPageReady = Promise.resolve(null);
+    ctx.techProbesReady = Promise.resolve(null);
+    ctx.techReady = Promise.resolve(null);
   }
 
   setHeader();

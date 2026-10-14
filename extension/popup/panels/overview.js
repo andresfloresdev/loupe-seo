@@ -30,6 +30,7 @@ import {
 import { TOOLS, toolUrl } from '../../lib/tools.js';
 import { statusText } from '../../lib/net.js';
 import { STATUS, statusLabel, overviewChips } from '../../lib/trackers.js';
+import { overviewChips as techChips } from '../../lib/tech.js';
 import { linksCsv } from './links.js';
 import { csvFilename } from '../../lib/csv.js';
 
@@ -132,6 +133,47 @@ function trackersRow(ctx) {
   };
   ctx.trackersPageReady.then(paint);
   ctx.trackersReady.then(paint);
+  return el;
+}
+
+// "Built with": the platform and its version (and its update status when
+// behind), the framework, the host. Paints with the page results, again as the
+// probes and latest versions arrive, and opens the Tech tab on click.
+function techRow(ctx) {
+  const main = h('div', { class: 'row-main' }, h('div', { class: 'row-value muted' }, spinner(), ' Checking…'));
+  const open = () => ctx.show('tech');
+  const el = h(
+    'div',
+    {
+      class: 'row clickable te-overview',
+      role: 'button',
+      tabindex: '0',
+      title: 'Open the Tech tab',
+      onClick: open,
+      onKeydown: (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        open();
+      },
+    },
+    h('div', { class: 'row-label' }, 'Built with'),
+    main,
+    h('span', { class: 'row-go' }, icon('chevron', 13)),
+  );
+  let painted = false;
+  const paint = () => {
+    const r = ctx.tech;
+    const chips = r && !r.error ? techChips(r) : [];
+    clear(main);
+    if (!r || r.error) append(main, value(`Couldn’t read the page${r?.error ? ` (${r.error})` : ''}`, 'muted'));
+    else if (!chips.length) append(main, value('Nothing detected', 'muted'));
+    else append(main, h('div', { class: 'chips' }, chips.map((c) => chip(c.label, c.kind, { dot: c.kind !== 'neutral', title: c.hint ?? undefined }))));
+    if (!painted) main.classList.add('fade-in');
+    painted = true;
+  };
+  ctx.techPageReady.then(paint);
+  ctx.techProbesReady.then(paint);
+  ctx.techReady.then(paint);
   return el;
 }
 
@@ -252,6 +294,7 @@ export function render(ctx, el) {
     }),
     row('Language', head.lang ? value(head.lang, 'mono') : [value('Missing', 'missing'), meta(chip('Add a lang attribute on <html>', 'warn'))], head.lang),
     row('Word count', value(fmt(page.wordCount))),
+    techRow(ctx),
     trackersRow(ctx),
     head.keywords ? row('Keywords', value(head.keywords), head.keywords) : null,
     head.author ? row('Author', value(head.author), head.author) : null,

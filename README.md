@@ -20,6 +20,7 @@ Manifest V3, no dependencies, no tracking. Everything runs in the browser.
 | Schema | JSON-LD (incl. `@graph`) and microdata as collapsible trees, invalid JSON flagged, Rich Results Test and Schema.org Validator links. Hreflang: every alternate (HTML and `Link` header) fetched for its status code, redirect, and whether it links back; missing x-default, self-reference, invalid codes, duplicates |
 | Social | Facebook/LinkedIn and X card previews, og:image size check, missing tags, raw Open Graph and Twitter tags |
 | Trackers | Analytics tags, ad pixels and consent banners the page runs (GTM, GA4 and the Google tag, Universal Analytics, Google Ads, Clarity, Hotjar, HubSpot, Matomo, Plausible, Fathom, Cloudflare Web Analytics, Segment, Meta Pixel, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft UET, Reddit; Cookiebot, OneTrust, Axeptio, Didomi, CookieYes, Termly, Iubenda, Osano, Complianz, Usercentrics), each with its ID and a copy button, a status from its strongest evidence (Sending, Loaded but not sending, In the page but not loaded, In GTM only) and the evidence itself. Read from the page's code, the requests it made, the trackers' live state and the GTM containers the page loads; a Meta Pixel set only inside GTM shows too. Copy list as plain text |
+| Tech | What the site runs and which version, when it gives it away: the platform (WordPress, WooCommerce, Shopify with its theme, Drupal, Joomla, Wix, Squarespace, Webflow, Framer, Ghost, HubSpot CMS), frameworks and libraries (Next.js, Nuxt, Astro, SvelteKit and Svelte, Gatsby, Remix or React Router, Angular, Vue, React, Preact, Alpine.js, htmx, jQuery, GSAP), the host and CDN, the server and language. On WordPress: the core version, the theme (and its parent), every plugin found (by name for 20-odd common ones, by folder otherwise) with its version or "version hidden", and the REST namespaces. Each version is Confirmed (the site states it) or Likely (inferred), with its evidence, and an update status: WordPress core against the branches WordPress still patches (Latest, Older branch patched, Update available, Unsupported), plugins and themes against wordpress.org, frameworks against npm. Overview gets a Built with row. Copy list as plain text |
 | Tools | User-agent switcher (Googlebot smartphone/desktop, Bingbot, GPTBot, ClaudeBot, PerplexityBot, mobile and desktop browsers, custom), People Also Ask extraction from Google results (with "load more"), site: and duplicate-content searches |
 | Settings | Highlight nofollow links on every page, Google domain for searches |
 
@@ -28,6 +29,17 @@ resource timing buffer can drop early requests, so a tracker that did send may
 show as loaded; content blockers (Brave Shields, uBlock) stop trackers before
 they load, so they show as in the page but not loaded. Loupe only reads: it
 never calls a tracker function.
+
+Tech limits: versions show only when the site exposes them, never a guess.
+React has no readable version without React DevTools, so it shows without one;
+Svelte gives its major version only. The WordPress probes (the feed, the REST
+namespaces, each theme's style.css, `wp-links-opml.php` when the core version is
+still unknown) run only on WordPress pages: same site, URLs taken from the
+page's own links, cookies omitted, five at most, 1 MB each; never `readme.txt`,
+`readme.html`, `wp-login.php` or anything under `wp-admin`. Latest versions come
+from api.wordpress.org and registry.npmjs.org with only a slug or package name,
+cached 12 hours, ten plugin lookups at most per page. The fingerprints are
+Loupe's own (MIT), written from scratch.
 
 **Right-click menu** (Loupe SEO): open the page, domain or a link in Ahrefs,
 Semrush, Moz, Majestic, Similarweb, Wayback Machine, PageSpeed Insights, Rich
@@ -129,11 +141,14 @@ extension/
   manifest.json
   background.js          context menus, badge, per-tab rule cleanup (Chrome)
   content/nofollow.js    nofollow highlighting (CSSOM only, CSP-safe)
-  lib/inject.js          functions injected into the page (collector, tracker signals and live state, PAA, flash, download)
+  lib/inject.js          functions injected into the page (collector, tracker and tech signals and live state, PAA, flash, download)
   lib/analysis.js        pure analysis
   lib/robots.js          robots.txt parser/matcher (RFC 9309 + Google rules)
-  lib/net.js             header, robots.txt, hreflang and GTM container fetches
+  lib/net.js             header, robots.txt, hreflang, GTM container and WordPress probe fetches
   lib/trackers.js        tracker catalog and detection (pure, data-driven)
+  lib/tech.js            tech catalog and detection (pure, data-driven)
+  lib/versions.js        version comparison and update status (pure)
+  lib/latest.js          latest versions from wordpress.org and npm (12 h cache)
   lib/platform.js        which browser: Chrome or Safari path
   lib/ua.js              user-agent rules (declarativeNetRequest)
   lib/tools.js           SEO tool and search URLs

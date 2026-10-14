@@ -64,7 +64,7 @@ export function render(ctx, el) {
         'div',
         { class: 'card', style: { padding: '12px' } },
         h('div', {}, h('b', {}, `Loupe SEO ${version}`)),
-        h('p', { class: 'note', style: { margin: '4px 0 0' } }, `Everything runs in your browser. No accounts, no analytics, no data leaves your ${IS_CHROME ? 'computer' : 'Mac'} except the requests Loupe makes to the site you are inspecting (headers, robots.txt, hreflang alternates) and to the Google Tag Manager containers that page itself loads, which it reads to list the page’s trackers.`),
+        h('p', { class: 'note', style: { margin: '4px 0 0' } }, `Everything runs in your browser. No accounts, no analytics, no data leaves your ${IS_CHROME ? 'computer' : 'Mac'} except the requests Loupe makes to the site you are inspecting (headers, robots.txt, hreflang alternates; on WordPress sites its feed, REST index and theme stylesheet), to the Google Tag Manager containers that page itself loads, which it reads to list the page’s trackers, and to api.wordpress.org and registry.npmjs.org for the latest versions, sending only a plugin, theme or package name.`),
         h(
           'p',
           { class: 'note' },
@@ -72,6 +72,8 @@ export function render(ctx, el) {
           h('kbd', {}, '1'),
           '–',
           h('kbd', {}, '9'),
+          ' and ',
+          h('kbd', {}, '0'),
           ' to switch tabs. Right-click any page for Loupe SEO tools.',
         ),
       ),
