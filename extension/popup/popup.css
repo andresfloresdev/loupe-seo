@@ -1,7 +1,7 @@
 /* Loupe SEO popup ---------------------------------------------------------- */
 
 :root {
-  --w: 460px;
+  --w: 490px;
   --h: 600px;
 
   --bg: #f7f7f8;
@@ -185,8 +185,9 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
-/* Nine tabs on one line in 460 px: every tab's side padding is 4 px tighter
-   than with eight (7 → 3, the gear 8 → 4). popup.js placeInk matches it. */
+/* Ten tabs on one line: every tab's side padding is 3 px (the gear 4 px), as
+   with nine, and the popup is 490 px wide, the smallest width that fits ten
+   rounded up to 10 px. popup.js placeInk matches the padding. */
 .tabs button {
   position: relative;
   border: 0;
@@ -1405,7 +1406,8 @@ pre.raw {
   transform: translateX(2px);
 }
 
-.tr-overview .chips {
+.tr-overview .chips,
+.te-overview .chips {
   padding-top: 1px;
 }
 
@@ -1579,6 +1581,44 @@ pre.raw {
 
 .tr-empty .empty {
   padding: 26px 24px;
+}
+
+/* Tech tab: the Trackers rows, with a version beside the name. */
+
+.te-version {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.te-hidden {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.te-sub {
+  margin-top: 1px;
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.te-checking {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.te-ns-row:hover {
+  background: none;
+}
+
+.te-ns {
+  margin-top: 0;
+}
+
+.te-ns ul {
+  font-size: 11px;
 }
 
 /* States ------------------------------------------------------------------ */

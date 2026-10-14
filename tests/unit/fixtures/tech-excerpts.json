@@ -1,0 +1,174 @@
+{
+ "_source": "Excerpts of real pages, headers and WordPress URLs, fetched with curl on 2026-10-13 (LOUPE-10 recon). A few hundred bytes each, never whole pages.",
+ "fairmountbagel.com": {
+  "url": "https://fairmountbagel.com/",
+  "html": [
+   "<link rel=\"alternate\" type=\"application/rss+xml\" title=\"Fairmount Bagel &raquo; Feed\" href=\"https://fairmountbagel.com/feed/\" />",
+   "<link rel=\"alternate\" type=\"application/rss+xml\" title=\"Fairmount Bagel &raquo; Comments Feed\" href=\"https://fairmountbagel.com/comments/feed/\" />",
+   "<link rel=\"https://api.w.org/\" href=\"https://fairmountbagel.com/wp-json/\" />",
+   "<meta name=\"generator\" content=\"WordPress 7.0.7\" />",
+   "<meta name=\"generator\" content=\"WPML ver:4.6.5 stt:1,4;\" />",
+   "<meta name=\"generator\" content=\"Powered by WPBakery Page Builder - drag and drop page builder for WordPress.\"/>",
+   "<meta name=\"generator\" content=\"Powered by Slider Revolution 6.6.5 - responsive, Mobile-Friendly Slider Plugin for WordPress with comfortable drag and drop interface.\" />",
+   "<!-- This site is optimized with the Yoast SEO plugin v27.2 - https://yoast.com/product/yoast-seo-wordpress/ -->",
+   "<link rel='stylesheet' id='contact-form-7-css' href='https://fairmountbagel.com/wp-content/plugins/contact-form-7/includes/css/styles.css?ver=5.9.5' media='all' />",
+   "<link rel='stylesheet' id='js_composer_front-css' href='https://fairmountbagel.com/wp-content/plugins/js_composer/assets/css/js_composer.min.css?ver=5.4.7' media='all' />",
+   "<link rel='stylesheet' id='us-base-css' href='//fairmountbagel.com/wp-content/themes/Zephyr/framework/css/us-base.css?ver=2.2' media='all' />",
+   "<link rel='stylesheet' id='us-font-awesome-css' href='//fairmountbagel.com/wp-content/themes/Zephyr/framework/css/font-awesome.css?ver=4.4.0' media='all' />",
+   "<script id=\"jquery-core-js\" src=\"https://fairmountbagel.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1\"></script>",
+   "<body data-rsssl=1 class=\"home wp-singular page-template-default page page-id-1546 wp-theme-Zephyr l-body us-theme_zephyr_2-2 wpb-js-composer js-comp-ver-5.4.7 vc_responsive\">"
+  ],
+  "headers": {
+   "link": "<https://fairmountbagel.com/wp-json/>; rel=\"https://api.w.org/\", <https://fairmountbagel.com/wp-json/wp/v2/pages/1546>; rel=\"alternate\"; title=\"JSON\"; type=\"application/json\", <https://fairmountbagel.com/>; rel=shortlink",
+   "server": "cloudflare",
+   "cf-ray": "a4a324bc6c2f7aa8-YYZ"
+  },
+  "namespaces": "{\"namespaces\":[\"oembed\\/1.0\",\"wpml\\/v1\",\"akismet\\/v1\",\"contact-form-7\\/v1\",\"yoast\\/v1\",\"wpml\\/tm\\/v1\",\"wpml\\/ate\\/v1\",\"wpml\\/st\\/v1\",\"ai1wm\\/v1\",\"wp-smush\\/v1\",\"otgs\\/installer\\/v1\",\"wp\\/v2\",\"wp-site-health\\/v1\",\"wp-block-editor\\/v1\",\"wp-abilities\\/v1\"]}",
+  "style": "/*\nTheme Name: Zephyr\nDescription: Material Design WordPress Theme\nVersion: 2.2\nAuthor:\tUpSolution\nTheme URI: http://zephyr.us-themes.com/\nAuthor URI: http://us-themes.com/\nLicense: Themeforest Split Licence\nLicense URI: -\nTags: responsive-layout, custom-colors, theme-options, translation-ready\nText Domain: us\nDomain Path: /languages\n*/\n\n\n"
+ },
+ "bixi.com": {
+  "url": "https://bixi.com/fr/",
+  "html": [
+   "<meta name=\"generator\" content=\"WordPress 6.9.4\" />",
+   "<meta name=\"generator\" content=\"WPML ver:4.9.4 stt:1,4;\" />",
+   "<link rel='stylesheet' id='wp-block-library-css' href='https://bixi.com/wp-includes/css/dist/block-library/style.min.css?ver=6.9.4' type='text/css' media='all' />",
+   "<link rel=\"stylesheet\" href=\"https://bixi.com/wp-content/themes/bixi2023/assets/built/css/index.css?v=20261007172512\">",
+   "<script type=\"text/javascript\" src=\"https://bixi.com/wp-content/plugins/sitepress-multilingual-cms/res/js/cookies/language-cookie.js?ver=494000\" id=\"wpml-cookie-js\" defer=\"defer\" data-wp-strategy=\"defer\">",
+   "<!-- This site is optimized with the Yoast SEO plugin v27.6 - https://yoast.com/product/yoast-seo-wordpress/ -->"
+  ],
+  "headers": {
+   "server": "Apache, Apache",
+   "link": "<https://bixi.com/fr/wp-json/>; rel=\"https://api.w.org/\", <https://bixi.com/fr/wp-json/wp/v2/pages/12>; rel=\"alternate\"; title=\"JSON\"; type=\"application/json\", <https://bixi.com/fr/>; rel=shortlink"
+  },
+  "style": "/*\nTheme Name: bixi2023\nAuthor: La Grange\nAuthor URI: https://la-grange.ca/\nVersion: 1.3\nRequires at least: 5.0\nTested up to: 5.4\nRequires PHP: 7.0\nText Domain: website\n*/"
+ },
+ "uqam.ca": {
+  "url": "https://uqam.ca/",
+  "html": [
+   "<link rel=\"https://api.w.org/\" href=\"https://uqam.ca/wp-json/\" />",
+   "<meta name=\"generator\" content=\"WPML ver:4.9.7 stt:1,4,43,2;\" />",
+   "<link rel='stylesheet' id='wp-block-library-css' href='https://uqam.ca/wp-includes/css/dist/block-library/common.min.css?ver=7.1.2' media='all' />",
+   "<link rel='stylesheet' id='style-css' href='https://uqam.ca/wp-content/themes/uqam2019/style.css?ver=1784223135' media='all' />",
+   "<!-- This site is optimized with the Yoast SEO plugin v28.4 - https://yoast.com/product/yoast-seo-wordpress/ -->"
+  ],
+  "headers": {
+   "server": "Apache/2.4.68 (Debian)",
+   "x-powered-by": "PHP/8.4.26",
+   "link": "<https://uqam.ca/wp-json/>; rel=\"https://api.w.org/\"",
+   "x-cache": "Hit from cloudfront",
+   "via": "1.1 5b66dea612a639738fa8c403582717da.cloudfront.net (CloudFront)",
+   "x-amz-cf-id": "JpYb-r0IwT4RWHJOv2buXtSmkk-QPYLfPJcJZOswVFDEUB_6NCpUGA=="
+  },
+  "style": "/*\nTheme Name: UQAM 2019\nTheme URI: https://bitbucket.org/uqam/uqam-2019.git\nAuthor: SAV\nAuthor URI: https://audiovisuel.uqam.ca\nDescription: Thème dus site uqam.ca\nVersion: 2.0.2\nLicense: GNU General Public License v2 or later\nLicense URI: LICENSE\nText Domain: UQAM2019\nTags: UQAM\n*/"
+ },
+ "dieuduciel.com": {
+  "url": "https://dieuduciel.com/",
+  "html": [
+   "<link rel='stylesheet' id='tomtom-basic-style-css' href='https://dieuduciel.com/wp-content/themes/dieuduciel/build/index.css?ver=7.1.3' media='all' />",
+   "<body class=\"home wp-singular page-template page-template-template-accueil page-template-template-accueil-php page page-id-9057 wp-theme-dieuduciel\">"
+  ],
+  "headers": {
+   "server": "cloudflare",
+   "x-powered-by": "WP Engine",
+   "cf-ray": "a4a324c659f980f3-YUL"
+  },
+  "style": "/*\nTheme Name: Dieu du ciel!\nAuthor: tom & tom\nAuthor URI: https://tomtom.design\nDescription: Custom designed theme for Dieu du ciel!.\nVersion: 1.0\nRequires at least: 5.5\nTested up to: 5.5\nRequires PHP: 7.3\n*/"
+ },
+ "yoast.com": {
+  "url": "https://yoast.com/",
+  "html": [
+   "<link rel=\"alternate\" type=\"application/rss+xml\" title=\"Yoast &raquo; Feed\" href=\"https://yoast.com/feed/\" />",
+   "<link rel=\"preload\" href=\"https://yoast.com/app/themes/yoast-com/assets/fonts/OpenSansStatic/OpenSans-Regular.woff2\" as=\"font\" type=\"font/woff2\" crossorigin>",
+   "<script id=\"jquery-ui-core-js\" src=\"https://yoast.com/wp/wp-includes/js/jquery/ui/core.min.js?ver=1.14.2\"></script>",
+   "<link rel=\"stylesheet\" id=\"brands-styles-css\" href=\"https://yoast.com/app/plugins/woocommerce/assets/css/brands.css?ver=10.0.5\" media=\"all\" />",
+   "<script data-wp-strategy=\"defer\" id=\"jquery-blockui-js\" src=\"https://yoast.com/app/plugins/woocommerce/assets/js/jquery-blockui/jquery.blockUI.min.js?ver=2.7.0-wc.10.0.5\">",
+   "<body class=\"home wp-singular page-template page-template-page-wide page-template-page-wide-php page page-id-3438981 custom-background wp-embed-responsive wp-theme-yoast-theme wp-child-theme-yoast-com theme-yoast-theme woocommerce-uses-block-theme woocommerce-block-theme-has-button-styles woocommerce-no-js has_paypal_express_checkout theme-home cc-ca\">"
+  ],
+  "headers": {
+   "server": "cloudflare",
+   "cf-ray": "a4a324c3eb2b28bf-YUL"
+  },
+  "feed": "<generator>https://wordpress.org/?v=7.1.3</generator>",
+  "namespaces": "{\"namespaces\":[\"yoast\\/v1\",\"yoast-gdpr\\/v1\",\"wc\\/v3\",\"wc\",\"oembed\\/1.0\",\"akismet\\/v1\",\"find-my-blocks\\/v1\",\"wc\\/v1\",\"ws-form\\/v1\",\"jetpack\\/v4\",\"integration-adyen-woocommerce\\/v1\",\"woosa-adyen\",\"yoastcom\\/v1\",\"yoast-account-transfer\\/v1\",\"yoast\\/v2\",\"duplicate-post\\/v1\",\"helpful-pro\\/v1\",\"wc-admin\",\"wc-analytics\",\"wc\\/store\",\"wc\\/store\\/v1\",\"wc\\/private\",\"wc\\/v2\",\"google-site-kit\\/v1\",\"yith-wcaf\",\"wc-admin-email\",\"wc-telemetry\",\"wccom-site\\/v3\",\"facetwp\\/v1\",\"wp\\/v2\",\"wp-site-health\\/v1\",\"wp-block-editor\\/v1\",\"wp-abilities\\/v1\"]}"
+ },
+ "kinsta.com": {
+  "url": "https://kinsta.com/",
+  "html": [
+   "<link rel='preload' href='https://kinsta.com/wp-content/themes/kinsta/fonts/pathway-extreme-variable.woff2' as='font' type='font/woff2' crossorigin='anonymous' />",
+   "<!-- This site is optimized with the Yoast SEO Premium plugin v24.6 (Yoast SEO v24.6) - https://yoast.com/wordpress/plugins/seo/ -->"
+  ],
+  "headers": {
+   "cf-ray": "a4a324c45942a27b-YUL",
+   "link": "<https://kinsta.com/wp-json/>; rel=\"https://api.w.org/\", <https://kinsta.com/wp-json/wp/v2/pages/4723>; rel=\"alternate\"; title=\"JSON\"; type=\"application/json\", <https://kinsta.com/>; rel=shortlink",
+   "server": "cloudflare",
+   "x-kinsta-cache": "HIT"
+  },
+  "feed": "<generator>https://wordpress.org/?v=6.7.10</generator>",
+  "opml": "<?xml version=\"1.0\"?>\n<opml version=\"1.0\">\n\t<head>\n\t\t<title>\n\t\tLinks for Kinsta®\t\t</title>\n\t\t<dateCreated>Wed, 14 Oct 2026 02:52:12 GMT</dateCreated>\n\t\t<!-- generator=\"WordPress/6.7.10\" -->\n\t</head>\n\t<body>\n</body>\n</opml>\n"
+ },
+ "elementor.com": {
+  "url": "https://elementor.com/",
+  "html": [
+   "<meta name=\"generator\" content=\"WordPress 7.0.7\" />",
+   "<meta name=\"generator\" content=\"Elementor 4.2.3; features: e_font_icon_svg, additional_custom_breakpoints; settings: css_print_method-external, google_font-disabled, font_display-swap\">",
+   "<script id=\"elementor-webpack-runtime-js\" src=\"https://elementor.com/wp-content/plugins/elementor/assets/js/webpack.runtime.min.js?ver=4.2.3\">",
+   "<link rel='stylesheet' id='e-popup-css' href='https://elementor.com/wp-content/plugins/elementor-pro/assets/css/conditionals/popup.min.css?ver=4.2.2' media='all' />"
+  ],
+  "headers": {
+   "cf-ray": "a4a324cf1ff592ef-YUL",
+   "server": "cloudflare",
+   "x-powered-by": "Elementor Cloud"
+  }
+ },
+ "nextjs.org": {
+  "url": "https://nextjs.org/",
+  "html": [
+   "<script src=\"/_next/static/immutable/chunks/255-bi0pre1fi.js\" async=\"\"></script>",
+   "<script>self.__next_f.push([1,\"1:\\\"])</script>"
+  ],
+  "headers": {
+   "server": "Vercel",
+   "x-vercel-id": "iad1::ht82n-1791944834535-dd280e3ffb1f"
+  }
+ },
+ "astro.build": {
+  "url": "https://astro.build/",
+  "html": [
+   "<meta name=\"generator\" content=\"Astro v7.3.5\">"
+  ],
+  "headers": {
+   "server": "cloudflare",
+   "cf-ray": "a4a324c76e21b225-YUL"
+  }
+ },
+ "floresagency.ca": {
+  "url": "https://floresagency.ca/",
+  "html": [
+   "<meta name=\"generator\" content=\"Astro v5.16.0\">",
+   "<link rel=\"stylesheet\" href=\"/_astro/combien-coute-un-site-web.CexR9ukE.css\">"
+  ],
+  "headers": {}
+ },
+ "angular.dev": {
+  "url": "https://angular.dev/",
+  "html": [
+   "<adev-root ng-version=\"22.2.2+sha-68c6c57\" _nghost-ng-c1178817259=\"\" ngh=\"5\" ng-server-context=\"ssg\">"
+  ],
+  "headers": {
+   "x-served-by": "cache-yul1970023-YUL",
+   "x-cache": "HIT"
+  }
+ },
+ "allbirds.com": {
+  "url": "https://www.allbirds.com/",
+  "html": [
+   "<script>Shopify.theme = {\"name\":\"[DNAM Theme July 2026]\",\"id\":130450260048,\"schema_name\":\"allbirds-theme\",\"schema_version\":\"1.231.12\",\"theme_store_id\":null,\"role\":\"main\"};</script>",
+   "<script defer=\"defer\" async type=\"module\" src=\"https://cdn.shopify.com/shopifycloud/shop-js/modules/v2/loader.init-shop-cart-sync.en.esm.js\">"
+  ],
+  "headers": {
+   "powered-by": "Shopify, Shopify",
+   "server": "cloudflare, cloudflare",
+   "cf-ray": "a4a324cb7ad4a272-YUL, a4a324cc5ec8c6cd-YUL"
+  }
+ }
+}

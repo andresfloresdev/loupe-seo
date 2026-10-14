@@ -98,7 +98,7 @@ async function suite(mode, extDir) {
     const p = await context.newPage();
     p.on('pageerror', (e) => popupErrors.push(String(e)));
     p.on('console', (m) => m.type() === 'error' && popupErrors.push(m.text()));
-    await p.setViewportSize({ width: 460, height: 600 });
+    await p.setViewportSize({ width: 490, height: 600 });
     if (dark) await p.emulateMedia({ colorScheme: 'dark' });
     await p.goto(`chrome-extension://${extId}/popup/popup.html?tabId=${tabId}`);
     return p;
@@ -106,12 +106,12 @@ async function suite(mode, extDir) {
   const shot = (p, name) => p.screenshot({ path: path.join(shots, `${name}.png`) });
   async function tallShot(p, name) {
     // Grow the popup so the whole panel fits in one image.
-    await p.setViewportSize({ width: 460, height: 1500 });
+    await p.setViewportSize({ width: 490, height: 1500 });
     await p.addStyleTag({ content: ':root{--h:1500px !important}' });
     await sleep(500);
     await shot(p, name);
     await p.addStyleTag({ content: ':root{--h:600px !important}' });
-    await p.setViewportSize({ width: 460, height: 600 });
+    await p.setViewportSize({ width: 490, height: 600 });
   }
   const tab = (p, name) => p.click(`.tabs [data-tab="${name}"]`);
 
@@ -139,7 +139,8 @@ async function suite(mode, extDir) {
   const h1Count = await popup.locator('#panel-overview .hd-counts .metric').first().locator('.metric-num').innerText();
   check('H1 count tile', h1Count === '1', h1Count);
   check('Overview: no trackers on this page', /Trackers\s*None found/.test(overview), overview.slice(overview.indexOf('Trackers'), overview.indexOf('Trackers') + 40));
-  // Nine tabs on one line in the 460 px popup: no wrap, no scroll.
+  check('Overview: Built with, nothing detected on this page', /Built with\s*Nothing detected/.test(overview), overview.slice(overview.indexOf('Built with'), overview.indexOf('Built with') + 40));
+  // Ten tabs on one line in the 490 px popup: no wrap, no scroll.
   const bar = await popup.evaluate(() => {
     const tabs = document.getElementById('tabs');
     const buttons = [...tabs.querySelectorAll('[data-tab]')];
@@ -152,7 +153,7 @@ async function suite(mode, extDir) {
       order: buttons.map((b) => b.dataset.tab).join(' '),
     };
   });
-  check('tab bar: nine tabs, Trackers between Social and Tools', bar.count === 9 && /social trackers tools settings$/.test(bar.order), bar.order);
+  check('tab bar: ten tabs, Tech between Social and Trackers', bar.count === 10 && /social tech trackers tools settings$/.test(bar.order), bar.order);
   check('tab bar: one line, no scroll', bar.tops === 1 && bar.overflow <= 0 && bar.right >= 0, JSON.stringify(bar));
   console.log(`    tab bar: ${bar.right}px to spare`);
   await shot(popup, 'light-1-overview');
@@ -369,12 +370,18 @@ async function suite(mode, extDir) {
     await row.click();
     await sleep(500);
     check('clicking the Overview row opens the Trackers tab', (await trPopup.locator('.tabs [data-tab="trackers"]').getAttribute('aria-selected')) === 'true');
+    await trPopup.keyboard.press('0');
+    await sleep(300);
+    check('key 0 opens Settings, the tenth tab', (await trPopup.locator('.tabs [data-tab="settings"]').getAttribute('aria-selected')) === 'true');
     await trPopup.keyboard.press('9');
     await sleep(300);
-    check('key 9 opens Settings, the ninth tab', (await trPopup.locator('.tabs [data-tab="settings"]').getAttribute('aria-selected')) === 'true');
+    check('key 9 opens Tools', (await trPopup.locator('.tabs [data-tab="tools"]').getAttribute('aria-selected')) === 'true');
+    await trPopup.keyboard.press('8');
+    await sleep(300);
+    check('key 8 opens Trackers', (await trPopup.locator('.tabs [data-tab="trackers"]').getAttribute('aria-selected')) === 'true');
     await trPopup.keyboard.press('7');
     await sleep(300);
-    check('key 7 opens Trackers', (await trPopup.locator('.tabs [data-tab="trackers"]').getAttribute('aria-selected')) === 'true');
+    check('key 7 opens Tech', (await trPopup.locator('.tabs [data-tab="tech"]').getAttribute('aria-selected')) === 'true');
 
     const darkTr = await trackersPopup(trTab, { dark: true });
     await darkTr.locator('#panel-trackers .tr-row', { hasText: FIRING_PIXEL }).locator('summary').click();
@@ -429,6 +436,237 @@ async function suite(mode, extDir) {
     await shot(p, 'light-14-trackers-empty');
     const dn = await trackersPopup(tabId, { dark: true });
     await shot(dn, 'dark-14-trackers-empty');
+    await dn.close();
+    await p.close();
+    await n.close();
+  }
+
+  // ------------------------------------------------------------------ tech
+  console.log('\nTech');
+  const readTech = (p) =>
+    p.evaluate(() =>
+      [...document.querySelectorAll('#panel-tech .te-row')].map((r) => ({
+        group: r.closest('section')?.querySelector('.block-title')?.textContent ?? '',
+        name: r.querySelector('.tr-name b')?.textContent ?? '',
+        version: r.querySelector('.te-version')?.textContent ?? null,
+        hidden: Boolean(r.querySelector('.te-hidden')),
+        likely: [...r.querySelectorAll('.tr-name .chip')].some((c) => c.textContent === 'Likely'),
+        update: r.querySelector('.tr-head > .chip')?.textContent ?? null,
+        sub: r.querySelector('.te-sub')?.textContent ?? null,
+        evidence: [...r.querySelectorAll('.tr-ev li')].map((li) => li.textContent),
+      })),
+    );
+  const techDone = (p) =>
+    p.waitForFunction(
+      () => {
+        const el = document.querySelector('#panel-tech');
+        return el && !el.querySelector('.spinner') && (el.querySelector('.te-row') || el.querySelector('.te-empty'));
+      },
+      null,
+      { timeout: 20000 },
+    );
+  async function techPopup(tabId, opts) {
+    const p = await loadedPopup(tabId, opts);
+    await tab(p, 'tech');
+    await techDone(p);
+    await sleep(600);
+    return p;
+  }
+  async function techPage(pagePath) {
+    const page = await context.newPage();
+    await page.goto(`${base}${pagePath}`);
+    await sleep(700);
+    return { page, tabId: await tabIdAt(`${base}${pagePath}`) };
+  }
+  const techRow = (list, name) => list.find((r) => r.name === name);
+  const showTech = (r) => (r ? `${r.name} ${r.version ?? (r.hidden ? 'hidden' : '-')} [${r.update ?? ''}] ${r.sub ?? ''} {${r.evidence.join('; ')}}` : 'missing');
+  // WordPress probes: the popup's fetches (dest "empty") of a feed, the REST
+  // index, a stylesheet or wp-links-opml.php on the fixture site.
+  const WP_PROBE = /\/feed\/|wp-json|\/style\.css|wp-links-opml\.php/;
+  const probesSince = (from) => seen.all.slice(from).filter((r) => r.dest === 'empty' && WP_PROBE.test(r.path));
+  const lookupsSince = (from) => external.slice(from).filter((e) => /^https:\/\/(?:api\.wordpress\.org|registry\.npmjs\.org)\//.test(e.url));
+
+  {
+    // WordPress, installed in /wp/: every probe URL comes from the page's links.
+    const { page: wpPage, tabId } = await techPage('/wp/');
+    const [serverFrom, externalFrom] = [seen.all.length, external.length];
+    const p = await techPopup(tabId);
+    await p.waitForFunction(() => !document.querySelector('#panel-tech .te-checking'), null, { timeout: 20000 });
+    await sleep(400);
+    const list = await readTech(p);
+    const wp = techRow(list, 'WordPress');
+    check('WordPress 6.9.4, from the site’s feed (no generator tag on the page)', wp?.version === '6.9.4' && /^feed generator/.test(wp.evidence[0] ?? ''), showTech(wp));
+    check('WordPress update status: Update available (6.9.10), the 6.9 branch’s patch', wp?.update === 'Update available (6.9.10)', showTech(wp));
+    const child = techRow(list, 'Loupe Child');
+    check('child theme from its style.css: Loupe Child 1.2.0, child of twentytwentyfive, not on wordpress.org', child?.version === '1.2.0' && /Child theme of twentytwentyfive/.test(child.sub ?? '') && child.update === 'Not on wordpress.org', showTech(child));
+    const parent = techRow(list, 'Twenty Twenty-Five');
+    check('parent theme: Twenty Twenty-Five 1.2, Latest is 1.3', parent?.version === '1.2' && parent.update === 'Latest is 1.3', showTech(parent));
+    const cf7 = techRow(list, 'Contact Form 7');
+    check('Contact Form 7 5.9.5 from its asset, Latest is 6.2.2', cf7?.version === '5.9.5' && cf7.update === 'Latest is 6.2.2', showTech(cf7));
+    const yoast = techRow(list, 'Yoast SEO');
+    check('Yoast SEO 27.2 from its comment, Latest', yoast?.version === '27.2' && yoast.update === 'Latest', showTech(yoast));
+    check('WPML 4.6.5: premium, Not on wordpress.org', techRow(list, 'WPML')?.version === '4.6.5' && techRow(list, 'WPML')?.update === 'Not on wordpress.org', showTech(techRow(list, 'WPML')));
+    const gallery = techRow(list, 'loupe-gallery');
+    check('unknown plugin shown by its folder name', gallery?.sub === 'Plugin folder name' && gallery.version === '2.0.1', showTech(gallery));
+    check('jQuery 3.7.1 under Frameworks and libraries', /^Frameworks and libraries/.test(techRow(list, 'jQuery')?.group ?? '') && techRow(list, 'jQuery')?.version === '3.7.1', showTech(techRow(list, 'jQuery')));
+    const ns = await p.locator('#panel-tech .te-ns summary').innerText();
+    check('REST namespaces listed, one not matched to a plugin', /8 REST namespaces, 1 not matched to a plugin/.test(ns), ns);
+    const probed = probesSince(serverFrom);
+    const paths = probed.map((r) => r.path).sort();
+    check(
+      'probes: the feed, the namespaces and both themes’ style.css, from /wp/',
+      JSON.stringify(paths) === JSON.stringify(['/wp/feed/', '/wp/wp-content/themes/loupe-child/style.css', '/wp/wp-content/themes/twentytwentyfive/style.css', '/wp/wp-json/?_fields=namespaces']),
+      paths.join(' '),
+    );
+    check('no wp-links-opml.php when the feed gives the version', !paths.some((x) => x.includes('opml')), paths.join(' '));
+    check('five probes at most', probed.length <= 5, String(probed.length));
+    const pageSent = seen.all.some((r) => r.dest !== 'empty' && r.path.startsWith('/wp/wp-content/') && r.cookie.includes('wp_e2e_session'));
+    check('probes send no cookie (the page’s own requests do)', pageSent && probed.every((r) => !r.cookie), JSON.stringify([pageSent, probed.map((r) => r.cookie)]));
+    const lookups = lookupsSince(externalFrom);
+    const lookupPaths = lookups.map((e) => decodeURIComponent(e.url.replace(/^https:\/\/[^/]+/, '')));
+    check('latest versions asked of api.wordpress.org: core, contact-form-7, wordpress-seo, both themes', ['/core/version-check/1.7/', 'request[slug]=contact-form-7', 'request[slug]=wordpress-seo', 'request[slug]=twentytwentyfive', 'request[slug]=loupe-child'].every((x) => lookupPaths.some((u) => u.includes(x))), lookupPaths.join(' '));
+    check('premium WPML is not looked up', !lookupPaths.some((u) => /wpml|sitepress/.test(u)), lookupPaths.join(' '));
+    check('lookups carry only a slug: no page URL, host or port', lookups.every((e) => !e.url.includes('127.0.0.1') && !e.url.includes(new URL(base).port)), lookups.map((e) => e.url).join(' '));
+    check('lookups come from the popup and go through the route', lookups.length > 0 && lookups.every((e) => e.served && e.from.startsWith('chrome-extension://')), JSON.stringify(lookups.map((e) => [e.url.slice(0, 60), e.served])));
+    const toolbar = await p.locator('#panel-tech .toolbar').innerText();
+    check('count chip: 8 technologies', /8 technologies/.test(toolbar), toolbar);
+    await p.locator('#panel-tech .toolbar button', { hasText: 'Copy list' }).click();
+    await sleep(200);
+    const copied = await p.evaluate(() => navigator.clipboard.readText());
+    check('Copy list: one "Name version" per line', copied.split('\n').includes('WordPress 6.9.4') && copied.split('\n').includes('Loupe Child 1.2.0 (theme)') && copied.split('\n').includes('Contact Form 7 5.9.5'), copied);
+    await p.locator('#panel-tech .te-row', { hasText: 'WordPress' }).first().locator('summary').click();
+    await sleep(400);
+    await shot(p, 'light-15-tech-wordpress');
+    await tallShot(p, 'light-15-tech-wordpress-full');
+
+    // Overview: the Built with row, and a click (or Enter) opens the tab.
+    await tab(p, 'overview');
+    await sleep(500);
+    const row = p.locator('#panel-overview .te-overview');
+    const chips = await row.locator('.chip').allInnerTexts();
+    check('Overview Built with: WordPress 6.9.4 and its update status, no jQuery', JSON.stringify(chips) === JSON.stringify(['WordPress 6.9.4', 'Update available (6.9.10)']), chips.join(' | '));
+    await row.scrollIntoViewIfNeeded();
+    await sleep(300);
+    await row.screenshot({ path: path.join(shots, 'light-16-overview-tech-row.png') });
+    await row.click();
+    await sleep(500);
+    check('clicking Built with opens the Tech tab', (await p.locator('.tabs [data-tab="tech"]').getAttribute('aria-selected')) === 'true');
+    await tab(p, 'overview');
+    await sleep(400);
+    await row.focus();
+    await p.keyboard.press('Enter');
+    await sleep(400);
+    check('Enter on Built with opens the Tech tab', (await p.locator('.tabs [data-tab="tech"]').getAttribute('aria-selected')) === 'true');
+
+    const before = external.length;
+    const d = await techPopup(tabId, { dark: true });
+    await d.waitForFunction(() => !document.querySelector('#panel-tech .te-checking'), null, { timeout: 20000 });
+    await sleep(400);
+    check('latest versions cached: a second popup asks nothing again', lookupsSince(before).length === 0, lookupsSince(before).map((e) => e.url).join(' '));
+    await d.locator('#panel-tech .te-row', { hasText: 'WordPress' }).first().locator('summary').click();
+    await sleep(400);
+    await shot(d, 'dark-15-tech-wordpress');
+    await tallShot(d, 'dark-15-tech-wordpress-full');
+    await tab(d, 'overview');
+    await sleep(500);
+    const darkRow = d.locator('#panel-overview .te-overview');
+    await darkRow.scrollIntoViewIfNeeded();
+    await sleep(300);
+    await darkRow.screenshot({ path: path.join(shots, 'dark-16-overview-tech-row.png') });
+    await d.close();
+    await p.close();
+    await wpPage.close();
+  }
+
+  {
+    // The same install, a page whose feed answers 404: the other probes still
+    // show, and wp-links-opml.php gives the version.
+    const { page: about, tabId } = await techPage('/wp/about/');
+    const from = seen.all.length;
+    const p = await techPopup(tabId);
+    await p.waitForFunction(() => !document.querySelector('#panel-tech .te-checking'), null, { timeout: 20000 });
+    await sleep(300);
+    const list = await readTech(p);
+    const wp = techRow(list, 'WordPress');
+    check('feed 404: WordPress 6.9.4 from wp-links-opml.php', wp?.version === '6.9.4' && /^wp-links-opml\.php/.test(wp.evidence[0] ?? ''), showTech(wp));
+    const read = await p.locator('#panel-tech .te-probes .tr-container').allInnerTexts();
+    const line = (label) => read.find((t) => t.startsWith(label)) ?? '';
+    check('the failed feed says so, the rest read', /Couldn’t read \(HTTP 404\)/.test(line('Feed')) && /Read$/.test(line('REST namespaces')) && read.filter((t) => /^Theme .* style\.css/.test(t) && /Read$/.test(t)).length === 2 && /Read$/.test(line('wp-links-opml.php')), read.join(' | '));
+    check('themes and plugins still show', techRow(list, 'Loupe Child')?.version === '1.2.0' && techRow(list, 'Contact Form 7')?.version === '5.9.5', list.map((r) => r.name).join(', '));
+    const paths = probesSince(from).map((r) => r.path);
+    check('probes: the 404 feed, then wp-links-opml.php from the WordPress folder, five in all', paths.includes('/wp/about/feed/') && paths.includes('/wp/wp-links-opml.php') && paths.length === 5, paths.join(' '));
+    await tallShot(p, 'light-19-tech-probe-failed');
+    await p.close();
+    await about.close();
+  }
+
+  // Nuxt (under a strict CSP), Astro and Angular, with their latest versions.
+  for (const [pagePath, want, chipsWanted] of [
+    ['/tech-nuxt', [['Nuxt', '4.6.1', 'Latest'], ['Vue', '3.5.43', 'Latest is 3.5.44'], ['Netlify', null, null]], ['Nuxt 4.6.1', 'Netlify']],
+    ['/tech-astro', [['Astro', '7.3.5', 'Latest is 7.3.8'], ['Cloudflare', null, null]], ['Astro 7.3.5', 'Cloudflare']],
+    ['/tech-angular', [['Angular', '22.2.2', 'Latest'], ['Fastly', null, null]], ['Angular 22.2.2', 'Fastly']],
+  ]) {
+    const { page: fx, tabId } = await techPage(pagePath);
+    const from = seen.all.length;
+    const p = await techPopup(tabId);
+    await p.waitForFunction(() => !document.querySelector('#panel-tech .te-checking'), null, { timeout: 20000 });
+    await sleep(300);
+    const list = await readTech(p);
+    for (const [name, version, update] of want) {
+      const r = techRow(list, name);
+      check(`${pagePath}: ${name}${version ? ` ${version}` : ''}${update ? `, ${update}` : ''}`, r && r.version === version && (update === null || r.update === update), showTech(r));
+    }
+    check(`${pagePath}: nothing else in Frameworks`, list.filter((r) => /^Frameworks/.test(r.group)).every((r) => want.some(([n]) => n === r.name)), list.map((r) => r.name).join(', '));
+    check(`${pagePath}: no WordPress probe`, probesSince(from).length === 0);
+    await tab(p, 'overview');
+    await sleep(400);
+    const chips = await p.locator('#panel-overview .te-overview .chip').allInnerTexts();
+    check(`${pagePath}: Overview Built with ${chipsWanted.join(', ')}`, JSON.stringify(chips) === JSON.stringify(chipsWanted), chips.join(' | '));
+    await p.close();
+    await fx.close();
+  }
+
+  {
+    // A framework page with a feed link: no WordPress probe at all.
+    const { page: nx, tabId } = await techPage('/tech-next');
+    const [from, externalFrom] = [seen.all.length, external.length];
+    const p = await techPopup(tabId);
+    await p.waitForFunction(() => !document.querySelector('#panel-tech .te-checking'), null, { timeout: 20000 });
+    await sleep(400);
+    const list = await readTech(p);
+    const next = techRow(list, 'Next.js');
+    check('Next.js 16.3.6 from the page’s live state, Latest is 16.4.0', next?.version === '16.3.6' && next.update === 'Latest is 16.4.0' && next.evidence.includes('window.next.version = 16.3.6'), showTech(next));
+    check('React, implied by Next.js', techRow(list, 'React')?.evidence.includes('implied by Next.js'), showTech(techRow(list, 'React')));
+    check('Vercel, from x-vercel-id', /^Hosting/.test(techRow(list, 'Vercel')?.group ?? ''), showTech(techRow(list, 'Vercel')));
+    check('not WordPress', !techRow(list, 'WordPress'));
+    const probed = probesSince(from);
+    check('a page that isn’t WordPress gets no WordPress probe', probed.length === 0, probed.map((r) => r.path).join(' '));
+    const lookups = lookupsSince(externalFrom).map((e) => e.url);
+    check('only npm is asked, for next', lookups.length === 1 && lookups[0] === 'https://registry.npmjs.org/next/latest', lookups.join(' '));
+    await shot(p, 'light-17-tech-framework');
+    await tab(p, 'overview');
+    await sleep(400);
+    const chips = await p.locator('#panel-overview .te-overview .chip').allInnerTexts();
+    check('Overview Built with: Next.js 16.3.6 and Vercel', JSON.stringify(chips) === JSON.stringify(['Next.js 16.3.6', 'Vercel']), chips.join(' | '));
+    const d = await techPopup(tabId, { dark: true });
+    await d.waitForFunction(() => !document.querySelector('#panel-tech .te-checking'), null, { timeout: 20000 });
+    await sleep(300);
+    await shot(d, 'dark-17-tech-framework');
+    await d.close();
+    await p.close();
+    await nx.close();
+  }
+
+  {
+    const { page: n, tabId } = await techPage('/trackers-none');
+    const from = seen.all.length;
+    const p = await techPopup(tabId);
+    const empty = await p.locator('#panel-tech').innerText();
+    check('nothing recognized: the empty state says what was checked', /Nothing recognized/.test(empty) && /\d+ asset URLs?/.test(empty) && /1 inline script/.test(empty) && /response headers/.test(empty), empty);
+    check('…and probed nothing', probesSince(from).length === 0);
+    await shot(p, 'light-18-tech-empty');
+    const dn = await techPopup(tabId, { dark: true });
+    await shot(dn, 'dark-18-tech-empty');
     await dn.close();
     await p.close();
     await n.close();
@@ -653,7 +891,7 @@ async function suite(mode, extDir) {
   await dark.waitForFunction(() => !document.querySelector('#panel-overview .spinner'), null, { timeout: 15000 });
   await sleep(800);
   await shot(dark, 'dark-1-overview');
-  for (const [i, name] of ['headings', 'links', 'images', 'schema', 'social', 'trackers', 'tools'].entries()) {
+  for (const [i, name] of ['headings', 'links', 'images', 'schema', 'social', 'tech', 'trackers', 'tools'].entries()) {
     await tab(dark, name);
     await sleep(900);
     await shot(dark, `dark-${i + 2}-${name}`);
@@ -664,6 +902,10 @@ async function suite(mode, extDir) {
   const codeErrors = popupErrors.filter((e) => !e.startsWith('Failed to load resource'));
   check('no errors in popup console', codeErrors.length === 0, codeErrors.join(' | '));
   check('UA requests recorded by server', seen.ua.length >= 2);
+  // Every request of the run, the fixture site's and the outside world's.
+  const never = /\/(?:readme\.txt|readme\.html|wp-login\.php)(?:[?#]|$)|\/wp-admin(?:\/|$)/;
+  const forbidden = [...seen.all.map((r) => r.path), ...external.map((e) => new URL(e.url).pathname)].filter((x) => never.test(x));
+  check(`no request ever went to readme.txt, readme.html, wp-login.php or wp-admin (${seen.all.length + external.length} requests)`, forbidden.length === 0, forbidden.join(' '));
 
   await context.close();
   server.close();

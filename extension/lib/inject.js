@@ -501,3 +501,194 @@ export function readTrackerState(names) {
   });
   return out;
 }
+
+// What the Tech tab reads beyond collectTrackerSignals (script srcs, inline
+// scripts, requests): every generator meta (collectPage keeps the first only),
+// stylesheet and preload URLs, HTML comments, the feed and REST API links,
+// <body> classes and a few framework markers. Isolated world, read-only.
+// Comments are capped: 400 characters each, the first 250 and the last 50.
+export function collectTechSignals() {
+  const out = { url: location.href, generators: [], links: [], comments: [], feeds: [], restLinks: [], bodyClass: '', dom: {} };
+  const attr = (el, name) => String(el.getAttribute(name) ?? '').slice(0, 300);
+  const read = (fn) => {
+    try {
+      fn();
+    } catch {}
+  };
+  read(() => {
+    for (const m of Array.from(document.querySelectorAll('meta[name="generator" i]')).slice(0, 20)) {
+      const c = attr(m, 'content').trim();
+      if (c) out.generators.push(c);
+    }
+  });
+  read(() => {
+    for (const l of Array.from(document.querySelectorAll('link[href]')).slice(0, 1500)) {
+      const rel = (l.getAttribute('rel') || '').trim().toLowerCase();
+      const href = String(l.href).slice(0, 2000);
+      if (/(?:^|\s)(?:stylesheet|preload|modulepreload|prefetch)(?:\s|$)/.test(rel) && out.links.length < 500) out.links.push(href);
+      else if (/(?:^|\s)alternate(?:\s|$)/.test(rel) && /(?:rss|atom)\+xml/i.test(l.getAttribute('type') || '') && out.feeds.length < 5) out.feeds.push({ href, title: attr(l, 'title').slice(0, 120) });
+      else if (rel === 'https://api.w.org/' && out.restLinks.length < 3) out.restLinks.push(href);
+    }
+  });
+  read(() => {
+    const walker = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
+    const last = [];
+    let seen = 0;
+    for (let n = walker.nextNode(); n && seen < 20_000; n = walker.nextNode()) {
+      seen++;
+      const t = String(n.nodeValue || '').trim().slice(0, 400);
+      if (!t) continue;
+      if (out.comments.length < 250) out.comments.push(t);
+      else {
+        last.push(t);
+        if (last.length > 50) last.shift();
+      }
+    }
+    out.comments.push(...last);
+  });
+  read(() => {
+    out.bodyClass = String(document.body?.className || '').slice(0, 3000);
+  });
+  const dom = out.dom;
+  read(() => {
+    const ng = document.querySelector('[ng-version]');
+    if (ng) dom.ngVersion = attr(ng, 'ng-version').slice(0, 60);
+  });
+  read(() => {
+    const site = document.documentElement.getAttribute('data-wf-site');
+    if (site) dom.wfSite = String(site).slice(0, 60);
+  });
+  for (const [key, id] of [
+    ['nuxtRoot', '__nuxt'],
+    ['nuxtData', '__NUXT_DATA__'],
+    ['nextData', '__NEXT_DATA__'],
+    ['gatsbyRoot', '___gatsby'],
+  ]) {
+    read(() => {
+      if (document.getElementById(id)) dom[key] = true;
+    });
+  }
+  read(() => {
+    const n = document.querySelectorAll('astro-island').length;
+    if (n) dom.astroIsland = n;
+  });
+  read(() => {
+    if (document.querySelector('[data-v-app]')) dom.vueApp = true;
+  });
+  read(() => {
+    if (document.querySelector('[data-reactroot]')) dom.reactRoot = true;
+  });
+  read(() => {
+    if (document.querySelector('link[rel="https://api.w.org/"]')) dom.restLink = true;
+  });
+  // Attribute names: one pass over the first 3000 elements.
+  read(() => {
+    for (const el of Array.from(document.getElementsByTagName('*')).slice(0, 3000)) {
+      for (const a of Array.from(el.attributes)) {
+        const name = a.name;
+        if (name.startsWith('data-astro-cid')) dom.astroCid = true;
+        else if (name.startsWith('data-sveltekit-')) dom.svelteKitAttr = true;
+        else if (/^hx-(?:get|post|put|patch|delete|target|swap|trigger|boost)$/.test(name)) dom.htmxAttr = true;
+        else if (name === 'x-data') dom.alpineAttr = true;
+      }
+    }
+  });
+  return out;
+}
+
+// Tech's live state, read in the page's own world (executeScript world MAIN),
+// like readTrackerState: property reads only, never a call to a page function,
+// every read in its own try/catch, and only plain strings come back. `values`
+// holds versions and names, `flags` the globals and DOM marks that are there.
+export function readTechState() {
+  const out = { values: {}, flags: [] };
+  const w = window;
+  const set = (key, v) => {
+    if (out.values[key] !== undefined) return;
+    if ((typeof v === 'string' && v) || (typeof v === 'number' && Number.isFinite(v))) out.values[key] = String(v).slice(0, 80);
+  };
+  const flag = (key) => {
+    if (!out.flags.includes(key)) out.flags.push(key);
+  };
+  const read = (fn) => {
+    try {
+      fn();
+    } catch {}
+  };
+  read(() => set('next.version', w.next?.version));
+  // Nuxt: the app on #__nuxt holds Nuxt's and Vue's versions.
+  read(() => {
+    const app = document.getElementById('__nuxt')?.__vue_app__;
+    read(() => set('nuxt.version', app?.$nuxt?.versions?.nuxt));
+    read(() => set('nuxt.vue', app?.$nuxt?.versions?.vue));
+    read(() => set('vue.version', app?.version));
+  });
+  read(() => {
+    if (w.__NUXT__ || w.$nuxt) flag('nuxt');
+  });
+  read(() => set('vue.version', document.querySelector('[data-v-app]')?.__vue_app__?.version));
+  read(() => set('vue2.version', w.Vue?.version));
+  read(() => set('jquery.version', w.jQuery?.fn?.jquery));
+  read(() => set('gsap.version', w.gsap?.version));
+  read(() => set('alpine.version', w.Alpine?.version));
+  read(() => set('htmx.version', w.htmx?.version));
+  read(() => set('elementor.version', w.elementorFrontendConfig?.version));
+  read(() => set('react.version', w.React?.version));
+  read(() => set('reactrouter.version', w.__reactRouterVersion));
+  read(() => {
+    const theme = w.Shopify?.theme;
+    if (!theme || typeof theme !== 'object') return;
+    flag('shopify.theme');
+    read(() => set('shopify.theme.name', theme.name));
+    read(() => set('shopify.theme.schema_name', theme.schema_name));
+    read(() => set('shopify.theme.schema_version', theme.schema_version));
+  });
+  // Svelte keeps its major version in a Set: asked with the built-in Set has(),
+  // never by iterating it (no page code runs).
+  read(() => {
+    const v = w.__svelte?.v;
+    if (!(v instanceof Set)) return;
+    for (let major = 9; major >= 3; major--) {
+      if (Set.prototype.has.call(v, String(major))) {
+        set('svelte.version', String(major));
+        break;
+      }
+    }
+  });
+  read(() => {
+    for (const key of Object.keys(w)) {
+      if (/^__sveltekit_/.test(key)) {
+        flag('sveltekit');
+        break;
+      }
+    }
+  });
+  for (const [key, name] of [
+    ['remix', '__remixContext'],
+    ['reactrouter', '__reactRouterContext'],
+    ['gatsby', '___loader'],
+    ['drupal', 'Drupal'],
+    ['joomla', 'Joomla'],
+    ['webflow', 'Webflow'],
+    ['preact.global', 'preact'],
+  ]) {
+    read(() => {
+      if (w[name] != null) flag(key);
+    });
+  }
+  // React and Preact leave their marks on the DOM nodes they render into.
+  read(() => {
+    const nodes = [document, document.documentElement, document.body, ...Array.from(document.querySelectorAll('#root, #__next, #app, #___gatsby, [data-reactroot], astro-island, body > *')).slice(0, 80)];
+    for (const n of nodes) {
+      read(() => {
+        if (!n) return;
+        for (const key of Object.keys(n)) if (/^__react(?:Fiber|Container)\$|^_reactRootContainer$/.test(key)) flag('react');
+      });
+      read(() => {
+        const vnode = n?.__k;
+        if (vnode && typeof vnode === 'object' && 'props' in vnode && 'type' in vnode) flag('preact');
+      });
+    }
+  });
+  return out;
+}
